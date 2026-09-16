@@ -1,0 +1,6 @@
+{
+  "name": "CO-ENGINEER",
+  "description": "Personalized learning & recommendation system providing skill gap analysis, interactive roadmaps, curated engineering resources, and curriculum management.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

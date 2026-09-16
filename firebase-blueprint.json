@@ -1,0 +1,151 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile with role, educational preferences, and status",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["user", "admin"] },
+        "selectedDomainId": { "type": "string" },
+        "skillLevel": { "type": "string", "enum": ["beginner", "intermediate", "advanced"] },
+        "status": { "type": "string", "enum": ["active", "suspended"] },
+        "joinedDate": { "type": "string" }
+      },
+      "required": ["id", "name", "email", "role"]
+    },
+    "Domain": {
+      "title": "Domain",
+      "description": "High-level learning subject domain",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "icon": { "type": "string" },
+        "color": { "type": "string" }
+      },
+      "required": ["id", "name"]
+    },
+    "Course": {
+      "title": "Course",
+      "description": "Curriculum course in a learning domain",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "domainId": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "order": { "type": "number" },
+        "difficulty": { "type": "string" }
+      },
+      "required": ["id", "domainId", "title"]
+    },
+    "Topic": {
+      "title": "Topic",
+      "description": "Specific learning topic with prerequisites",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "courseId": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "prerequisites": { "type": "array" },
+        "estimatedMinutes": { "type": "number" },
+        "difficulty": { "type": "string" }
+      },
+      "required": ["id", "courseId", "title"]
+    },
+    "Resource": {
+      "title": "Resource",
+      "description": "Verified educational resource linked to a topic",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "topicId": { "type": "string" },
+        "title": { "type": "string" },
+        "type": { "type": "string", "enum": ["article", "video", "interactive", "documentation", "book"] },
+        "url": { "type": "string" },
+        "estimatedMinutes": { "type": "number" },
+        "rating": { "type": "number" }
+      },
+      "required": ["id", "topicId", "title", "url"]
+    },
+    "Quiz": {
+      "title": "Quiz",
+      "description": "Assessment quiz questions for a topic",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "topicId": { "type": "string" },
+        "question": { "type": "string" },
+        "options": { "type": "array" },
+        "correctOptionIndex": { "type": "number" },
+        "explanation": { "type": "string" }
+      },
+      "required": ["id", "topicId", "question", "options", "correctOptionIndex"]
+    },
+    "UserTopicProgress": {
+      "title": "UserTopicProgress",
+      "description": "Progress of a learner on a given topic",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "topicId": { "type": "string" },
+        "status": { "type": "string", "enum": ["locked", "available", "in_progress", "completed"] },
+        "quizScore": { "type": "number" },
+        "completedAt": { "type": "string" }
+      },
+      "required": ["userId", "topicId", "status"]
+    },
+    "UserActivityLog": {
+      "title": "UserActivityLog",
+      "description": "Log entry for learner activities",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "action": { "type": "string" },
+        "details": { "type": "string" },
+        "timestamp": { "type": "string" }
+      },
+      "required": ["id", "userId", "action", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Stores user profiles and roles"
+    },
+    "/domains/{domainId}": {
+      "schema": "Domain",
+      "description": "Stores high-level learning domains"
+    },
+    "/courses/{courseId}": {
+      "schema": "Course",
+      "description": "Stores structured courses under domains"
+    },
+    "/topics/{topicId}": {
+      "schema": "Topic",
+      "description": "Stores learning topics and prerequisite links"
+    },
+    "/resources/{resourceId}": {
+      "schema": "Resource",
+      "description": "Stores learning resources associated with topics"
+    },
+    "/quizzes/{quizId}": {
+      "schema": "Quiz",
+      "description": "Stores quiz items for topic assessment"
+    },
+    "/progress/{progressId}": {
+      "schema": "UserTopicProgress",
+      "description": "Tracks learner progress on each topic"
+    },
+    "/activityLogs/{logId}": {
+      "schema": "UserActivityLog",
+      "description": "Tracks activity history for analytics"
+    }
+  }
+}

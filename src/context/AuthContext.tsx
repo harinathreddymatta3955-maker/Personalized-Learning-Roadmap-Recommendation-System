@@ -34,7 +34,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setAllUsers(users);
 
     const currentId = storageService.getCurrentUserId();
-    const existing = users.find(u => u.id === currentId) || users[0] || null;
+    const existing = currentId ? users.find(u => u.id === currentId) || null : null;
     setCurrentUser(existing);
 
     // Subscribe to cloud/storage updates
@@ -42,7 +42,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const updatedUsers = storageService.getUsers();
       setAllUsers(updatedUsers);
       const activeId = storageService.getCurrentUserId();
-      const updatedUser = updatedUsers.find(u => u.id === activeId) || updatedUsers[0] || null;
+      const updatedUser = activeId ? updatedUsers.find(u => u.id === activeId) || null : null;
       setCurrentUser(updatedUser);
     });
 
@@ -53,7 +53,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const users = storageService.getUsers();
     setAllUsers(users);
     const currentId = storageService.getCurrentUserId();
-    const existing = users.find(u => u.id === currentId) || users[0] || null;
+    const existing = currentId ? users.find(u => u.id === currentId) || null : null;
     setCurrentUser(existing);
   };
 

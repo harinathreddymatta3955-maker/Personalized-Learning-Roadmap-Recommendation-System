@@ -17,6 +17,7 @@ import {
 interface LoginModalProps {
   isOpen: boolean;
   onClose: () => void;
+  isDismissible?: boolean;
   onSwitchToRegister: () => void;
   onSwitchToForgotPassword?: () => void;
   appliedOtp?: string;
@@ -26,6 +27,7 @@ interface LoginModalProps {
 export const LoginModal: React.FC<LoginModalProps> = ({
   isOpen,
   onClose,
+  isDismissible = true,
   onSwitchToRegister,
   onSwitchToForgotPassword,
   appliedOtp = '',
@@ -228,13 +230,15 @@ export const LoginModal: React.FC<LoginModalProps> = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in">
       <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 relative max-h-[92vh] overflow-y-auto">
         {/* Close button */}
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
-          title="Close dialog"
-        >
-          <X className="w-5 h-5" />
-        </button>
+        {isDismissible && (
+          <button
+            onClick={onClose}
+            className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+            title="Close dialog"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        )}
 
         {/* Modal Header */}
         <div className="flex items-center gap-3 mb-4">

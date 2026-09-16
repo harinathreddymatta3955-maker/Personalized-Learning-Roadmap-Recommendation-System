@@ -253,12 +253,13 @@ export const storageService = {
     saveToStorage(STORAGE_KEYS.PROGRESS, INITIAL_USER_PROGRESS);
     saveToStorage(STORAGE_KEYS.ACTIVITY_LOGS, INITIAL_ACTIVITY_LOGS);
     saveToStorage(STORAGE_KEYS.OTPS, []);
-    saveToStorage(STORAGE_KEYS.CURRENT_USER_ID, 'user-1'); // Default to Alex Chen
+    // Do not auto-login to any account by default; require user to sign in
+    localStorage.removeItem(STORAGE_KEYS.CURRENT_USER_ID);
   },
 
   // Current user session
   getCurrentUserId(): string | null {
-    return localStorage.getItem(STORAGE_KEYS.CURRENT_USER_ID) || 'user-1';
+    return localStorage.getItem(STORAGE_KEYS.CURRENT_USER_ID);
   },
 
   setCurrentUserId(id: string | null) {

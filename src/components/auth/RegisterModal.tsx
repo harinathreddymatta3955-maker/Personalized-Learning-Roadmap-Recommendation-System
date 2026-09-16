@@ -7,12 +7,14 @@ import { X, User as UserIcon, Mail, Lock, Sparkles, Check } from 'lucide-react';
 interface RegisterModalProps {
   isOpen: boolean;
   onClose: () => void;
+  isDismissible?: boolean;
   onSwitchToLogin: () => void;
 }
 
 export const RegisterModal: React.FC<RegisterModalProps> = ({
   isOpen,
   onClose,
+  isDismissible = true,
   onSwitchToLogin
 }) => {
   const { register } = useAuth();
@@ -63,12 +65,14 @@ export const RegisterModal: React.FC<RegisterModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in overflow-y-auto">
       <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 relative my-8">
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100"
-        >
-          <X className="w-5 h-5" />
-        </button>
+        {isDismissible && (
+          <button
+            onClick={onClose}
+            className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        )}
 
         <div className="flex items-center gap-3 mb-4">
           <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100">

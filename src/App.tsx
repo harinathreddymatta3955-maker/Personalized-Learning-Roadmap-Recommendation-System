@@ -24,6 +24,7 @@ import { LoginModal } from './components/auth/LoginModal';
 import { RegisterModal } from './components/auth/RegisterModal';
 import { ForgotPasswordModal } from './components/auth/ForgotPasswordModal';
 import { SimulatedEmailModal } from './components/auth/SimulatedEmailModal';
+import { AuthGateScreen } from './components/auth/AuthGateScreen';
 
 import { storageService } from './services/storageService';
 import { Topic } from './types';
@@ -75,6 +76,21 @@ const MainAppContent: React.FC = () => {
   const currentTopicDomain = selectedTopic ? domains.find(d => d.id === selectedTopic.domainId) : undefined;
 
   const isSuspended = currentUser?.status === 'suspended';
+
+  // If user is not authenticated, show dedicated full-screen Sign In / Register landing gate
+  if (!currentUser) {
+    return (
+      <>
+        <AuthGateScreen onSuccess={() => setActiveTab('dashboard')} />
+        <SimulatedEmailModal 
+          onApplyOtp={(code) => {
+            setAppliedOtp(code);
+            setIsLoginOpen(true);
+          }}
+        />
+      </>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#0f172a] text-slate-100 flex flex-col relative overflow-x-hidden selection:bg-blue-600 selection:text-white font-sans">

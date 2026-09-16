@@ -23,7 +23,6 @@ import { AnalyticsCenter } from './components/admin/AnalyticsCenter';
 import { LoginModal } from './components/auth/LoginModal';
 import { RegisterModal } from './components/auth/RegisterModal';
 import { ForgotPasswordModal } from './components/auth/ForgotPasswordModal';
-import { SimulatedEmailModal } from './components/auth/SimulatedEmailModal';
 import { AuthGateScreen } from './components/auth/AuthGateScreen';
 
 import { storageService } from './services/storageService';
@@ -79,17 +78,7 @@ const MainAppContent: React.FC = () => {
 
   // If user is not authenticated, show dedicated full-screen Sign In / Register landing gate
   if (!currentUser) {
-    return (
-      <>
-        <AuthGateScreen onSuccess={() => setActiveTab('dashboard')} />
-        <SimulatedEmailModal 
-          onApplyOtp={(code) => {
-            setAppliedOtp(code);
-            setIsLoginOpen(true);
-          }}
-        />
-      </>
-    );
+    return <AuthGateScreen onSuccess={() => setActiveTab('dashboard')} />;
   }
 
   return (
@@ -247,13 +236,6 @@ const MainAppContent: React.FC = () => {
           setIsLoginOpen(true);
         }}
         initialCode={appliedOtp}
-      />
-
-      <SimulatedEmailModal 
-        onApplyOtp={(code) => {
-          setAppliedOtp(code);
-          setIsLoginOpen(true);
-        }}
       />
 
       <OfflineManagerModal

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User, UserRole } from '../types';
 import { storageService } from '../services/storageService';
+import { dispatchOtpEmail } from '../services/emailService';
 
 interface AuthContextType {
   currentUser: User | null;
@@ -9,7 +10,7 @@ interface AuthContextType {
   login: (email: string, password?: string) => { success: boolean; error?: string };
   register: (name: string, email: string, password: string, confirmPassword: string, domainId: string, skills: string[]) => { success: boolean; error?: string };
   logout: () => void;
-  forgotPassword: (email: string) => { success: boolean; otp?: string; error?: string };
+  forgotPassword: (email: string) => { success: boolean; error?: string };
   verifyOtpAndResetPassword: (email: string, otp: string, newPassword: string) => { success: boolean; error?: string };
   verifyOtpAndLogin: (email: string, otp: string) => { success: boolean; error?: string };
   verifyOtpOnly: (email: string, otp: string) => { success: boolean; error?: string };
@@ -25,6 +26,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [allUsers, setAllUsers] = useState<User[]>([]);
+  // We do NOT expose the raw secret OTP code to the UI
   const [lastDispatchedEmailOTP, setLastDispatchedEmailOTP] = useState<{ email: string; otp: string; timestamp: number } | null>(null);
 
   // Initialize storage and load user
@@ -137,19 +139,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       return { success: false, error: 'Email address not found in our database.' };
     }
 
-    // Generate 6 digit OTP
+    // Generate secure 6 digit OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     storageService.saveOTP(email, otp);
 
-    // Simulate Gmail SMTP dispatch
-    const otpPayload = {
-      email,
-      otp,
-      timestamp: Date.now()
-    };
-    setLastDispatchedEmailOTP(otpPayload);
+    // Send OTP directly to the user's provided email address (SMTP & Firebase)
+    dispatchOtpEmail(email, otp);
 
-    return { success: true, otp };
+    // Clear any previous in-app dispatched OTP - we do NOT display OTP inside the app!
+    setLastDispatchedEmailOTP(null);
+
+    return { success: true };
   };
 
   const verifyOtpAndResetPassword = (email: string, otp: string, newPassword: string) => {

@@ -54,7 +54,7 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
       setLoading(false);
       if (res.success) {
         setStep('verify');
-        setSuccess('A 6-digit OTP has been sent via Gmail SMTP simulation. Check the simulation card at the bottom right!');
+        setSuccess(`A 6-digit verification code has been sent to ${email.trim()}. Please check your email inbox and spam folder.`);
       } else {
         setError(res.error || 'Failed to dispatch OTP.');
       }
@@ -65,7 +65,7 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
     e.preventDefault();
     setError(null);
     if (!otp.trim()) {
-      setError('Please provide the 6-digit OTP.');
+      setError('Please enter the 6-digit code sent to your email.');
       return;
     }
     if (newPassword.length < 6) {
@@ -87,7 +87,7 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
           handleGoToLogin();
         }, 1800);
       } else {
-        setError(res.error || 'OTP verification failed.');
+        setError(res.error || 'Invalid verification code. Please check your email and try again.');
       }
     }, 400);
   };
@@ -108,7 +108,7 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
           </div>
           <div>
             <h2 className="text-lg font-bold text-slate-900">Reset Account Password</h2>
-            <p className="text-xs text-slate-500">Gmail SMTP OTP Verification Flow</p>
+            <p className="text-xs text-slate-500">Secure Email Verification Flow</p>
           </div>
         </div>
 

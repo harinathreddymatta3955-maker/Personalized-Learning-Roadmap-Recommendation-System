@@ -144,7 +144,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
         setAuthMode('forgot_password_otp');
         setOtpSent(true);
         setResendCooldown(30);
-        setSuccess(`Verification OTP sent to ${emailToUse}. Check your inbox or the simulation card!`);
+        setSuccess(`Verification OTP sent to ${emailToUse}. Please check your email inbox and spam/junk folder.`);
       } else {
         setError(res.error || 'Failed to dispatch OTP. Ensure the email is registered.');
       }
@@ -477,25 +477,6 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                     Change
                   </button>
                 </div>
-
-                {/* Quick Autofill hint if dispatched OTP matches */}
-                {lastDispatchedEmailOTP && lastDispatchedEmailOTP.email.toLowerCase() === email.toLowerCase() && (
-                  <div className="p-2 rounded-lg bg-blue-50 border border-blue-200 text-xs text-blue-800 flex items-center justify-between">
-                    <div className="flex items-center gap-1.5">
-                      <Mail className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                      <span>Received OTP: <strong className="font-mono text-blue-900">{lastDispatchedEmailOTP.otp}</strong></span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setOtp(lastDispatchedEmailOTP.otp);
-                      }}
-                      className="px-2 py-1 rounded bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-semibold cursor-pointer shadow-2xs"
-                    >
-                      Autofill
-                    </button>
-                  </div>
-                )}
 
                 {/* 6-Digit OTP Field */}
                 <div>

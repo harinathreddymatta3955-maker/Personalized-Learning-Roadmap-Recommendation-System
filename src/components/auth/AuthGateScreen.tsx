@@ -15,7 +15,9 @@ import {
   Target, 
   ArrowRight,
   ShieldCheck,
-  Brain
+  Brain,
+  KeyRound,
+  RefreshCw
 } from 'lucide-react';
 import { storageService } from '../../services/storageService';
 
@@ -24,7 +26,7 @@ interface AuthGateScreenProps {
 }
 
 export const AuthGateScreen: React.FC<AuthGateScreenProps> = ({ onSuccess }) => {
-  const { login, register, forgotPassword } = useAuth();
+  const { login, register, forgotPassword, verifyOtpAndResetPassword } = useAuth();
   const domains = storageService.getDomains();
 
   const [mode, setMode] = useState<'signin' | 'signup' | 'forgot'>('signin');
@@ -42,8 +44,13 @@ export const AuthGateScreen: React.FC<AuthGateScreenProps> = ({ onSuccess }) => 
   const [signUpDomainId, setSignUpDomainId] = useState(domains[0]?.id || 'domain-aiml');
   const [showSignUpPassword, setShowSignUpPassword] = useState(false);
 
-  // Forgot password state
+  // Forgot password & reset state
+  const [forgotStep, setForgotStep] = useState<'request' | 'verify'>('request');
   const [forgotEmail, setForgotEmail] = useState('');
+  const [resetOtp, setResetOtp] = useState('');
+  const [resetNewPassword, setResetNewPassword] = useState('');
+  const [resetConfirmPassword, setResetConfirmPassword] = useState('');
+  const [showResetPassword, setShowResetPassword] = useState(false);
 
   // UI state
   const [loading, setLoading] = useState(false);
@@ -127,11 +134,51 @@ export const AuthGateScreen: React.FC<AuthGateScreenProps> = ({ onSuccess }) => 
       const res = forgotPassword(forgotEmail.trim());
       setLoading(false);
       if (res.success) {
-        setSuccess('Reset instructions and OTP sent to your email. You can now use your OTP to sign in or reset your password.');
+        setForgotStep('verify');
+        setSuccess(`Verification code sent to ${forgotEmail.trim()}. Please check your email inbox and spam folder.`);
       } else {
         setError(res.error || 'Unable to locate account with that email.');
       }
-    }, 350);
+    }, 400);
+  };
+
+  const handleResetPassword = (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setSuccess(null);
+
+    if (!resetOtp.trim()) {
+      setError('Please enter the 6-digit OTP code sent to your email.');
+      return;
+    }
+    if (resetNewPassword.length < 6) {
+      setError('Password must be at least 6 characters.');
+      return;
+    }
+    if (resetNewPassword !== resetConfirmPassword) {
+      setError('Passwords do not match.');
+      return;
+    }
+
+    setLoading(true);
+    setTimeout(() => {
+      const res = verifyOtpAndResetPassword(forgotEmail.trim(), resetOtp.trim(), resetNewPassword);
+      setLoading(false);
+      if (res.success) {
+        setSuccess('Password reset successfully! You can now sign in with your new password.');
+        setSignInEmail(forgotEmail.trim());
+        setSignInPassword('');
+        setTimeout(() => {
+          setMode('signin');
+          setForgotStep('request');
+          setResetOtp('');
+          setResetNewPassword('');
+          setResetConfirmPassword('');
+        }, 1500);
+      } else {
+        setError(res.error || 'Invalid or expired OTP code. Please check your email and try again.');
+      }
+    }, 400);
   };
 
   return (
@@ -426,10 +473,14 @@ export const AuthGateScreen: React.FC<AuthGateScreenProps> = ({ onSuccess }) => 
               </form>
             )}
 
-            {/* FORGOT PASSWORD FORM */}
-            {mode === 'forgot' && (
+            {/* FORGOT PASSWORD / OTP VERIFICATION FORM */}
+            {mode === 'forgot' && forgotStep === 'request' && (
               <form onSubmit={handleForgotPassword} className="space-y-4">
                 <div>
+                  <div className="flex items-center gap-2 mb-2 text-xs text-slate-400">
+                    <KeyRound className="w-4 h-4 text-blue-400" />
+                    <span>Enter your registered email to receive a 6-digit verification code.</span>
+                  </div>
                   <label className="block text-xs font-semibold text-slate-300 mb-1.5">
                     Registered Email Address
                   </label>
@@ -464,6 +515,120 @@ export const AuthGateScreen: React.FC<AuthGateScreenProps> = ({ onSuccess }) => 
                     className="flex-1 py-2.5 px-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-all cursor-pointer disabled:opacity-50"
                   >
                     {loading ? 'Sending...' : 'Send OTP'}
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {mode === 'forgot' && forgotStep === 'verify' && (
+              <form onSubmit={handleResetPassword} className="space-y-3.5">
+                <div className="p-2.5 rounded-xl bg-blue-950/40 border border-blue-500/20 text-xs text-blue-200 flex items-center justify-between">
+                  <div className="truncate pr-2">
+                    <span className="text-slate-400">Sent to: </span>
+                    <strong className="text-white">{forgotEmail}</strong>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setForgotStep('request');
+                      setError(null);
+                      setSuccess(null);
+                    }}
+                    className="text-[11px] text-blue-400 hover:underline shrink-0 font-medium cursor-pointer"
+                  >
+                    Change
+                  </button>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-semibold text-slate-300">
+                      6-Digit OTP Code
+                    </label>
+                    <button
+                      type="button"
+                      disabled={loading}
+                      onClick={(e) => handleForgotPassword(e)}
+                      className="text-[11px] text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-1 cursor-pointer"
+                    >
+                      <RefreshCw className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} />
+                      <span>Resend OTP</span>
+                    </button>
+                  </div>
+                  <div className="relative">
+                    <KeyRound className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      maxLength={6}
+                      required
+                      value={resetOtp}
+                      onChange={(e) => setResetOtp(e.target.value)}
+                      placeholder="Enter 6-digit code from email"
+                      className="w-full bg-slate-950/80 border border-white/15 rounded-xl pl-10 pr-3.5 py-2.5 text-xs text-white tracking-widest font-mono placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    New Password
+                  </label>
+                  <div className="relative">
+                    <Lock className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type={showResetPassword ? 'text' : 'password'}
+                      required
+                      value={resetNewPassword}
+                      onChange={(e) => setResetNewPassword(e.target.value)}
+                      placeholder="At least 6 characters"
+                      className="w-full bg-slate-950/80 border border-white/15 rounded-xl pl-10 pr-10 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowResetPassword(!showResetPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200"
+                    >
+                      {showResetPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-300 mb-1">
+                    Confirm New Password
+                  </label>
+                  <div className="relative">
+                    <Lock className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type={showResetPassword ? 'text' : 'password'}
+                      required
+                      value={resetConfirmPassword}
+                      onChange={(e) => setResetConfirmPassword(e.target.value)}
+                      placeholder="Re-enter new password"
+                      className="w-full bg-slate-950/80 border border-white/15 rounded-xl pl-10 pr-10 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMode('signin');
+                      setForgotStep('request');
+                      setError(null);
+                      setSuccess(null);
+                    }}
+                    className="flex-1 py-2.5 px-3 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-semibold transition-all cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="flex-1 py-2.5 px-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    {loading ? 'Resetting...' : 'Reset & Sign In'}
                   </button>
                 </div>
               </form>

@@ -5,9 +5,6 @@ import {
   Mail, 
   Lock, 
   LogIn, 
-  Sparkles, 
-  Shield, 
-  UserCheck, 
   KeyRound, 
   CheckCircle2, 
   ArrowLeft, 
@@ -227,13 +224,6 @@ export const LoginModal: React.FC<LoginModalProps> = ({
     }, 400);
   };
 
-  const handleQuickFill = (demoEmail: string, demoPass: string) => {
-    setEmail(demoEmail);
-    setPassword(demoPass);
-    setError(null);
-    setSuccess(null);
-  };
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in">
       <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 relative max-h-[92vh] overflow-y-auto">
@@ -305,42 +295,6 @@ export const LoginModal: React.FC<LoginModalProps> = ({
             <KeyRound className="w-3.5 h-3.5" />
             <span>Forgot Password / OTP</span>
           </button>
-        </div>
-
-        {/* Quick Demo Pre-fill helper */}
-        <div className="mb-4 p-2.5 bg-slate-50 rounded-xl border border-slate-200">
-          <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5 flex items-center justify-between">
-            <span className="flex items-center gap-1">
-              <Sparkles className="w-3 h-3 text-amber-500" />
-              Quick Demo Accounts
-            </span>
-            <span className="text-[10px] font-normal text-slate-400">1-Click Fill</span>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => handleQuickFill('alex@example.com', 'password123')}
-              className="px-2 py-1.5 text-left rounded-lg bg-white border border-slate-200 hover:border-blue-300 text-xs text-slate-700 hover:bg-blue-50/50 transition-colors shadow-2xs"
-            >
-              <div className="font-semibold text-blue-900 flex items-center gap-1 text-[11px]">
-                <UserCheck className="w-3 h-3 text-blue-600" />
-                Learner Alex
-              </div>
-              <div className="text-[10px] text-slate-500 truncate">alex@example.com</div>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => handleQuickFill('admin@plrrs.edu', 'admin123')}
-              className="px-2 py-1.5 text-left rounded-lg bg-white border border-slate-200 hover:border-indigo-300 text-xs text-slate-700 hover:bg-indigo-50/50 transition-colors shadow-2xs"
-            >
-              <div className="font-semibold text-indigo-900 flex items-center gap-1 text-[11px]">
-                <Shield className="w-3 h-3 text-indigo-600" />
-                Admin Sarah
-              </div>
-              <div className="text-[10px] text-slate-500 truncate">admin@plrrs.edu</div>
-            </button>
-          </div>
         </div>
 
         {/* Alerts / Feedback */}

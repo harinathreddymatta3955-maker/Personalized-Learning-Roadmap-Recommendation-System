@@ -62,7 +62,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     }
   };
 
-  const { currentUser, role, logout, switchUser, allUsers } = useAuth();
+  const { currentUser, role, logout } = useAuth();
   const { isEffectiveOffline, cachedRoadmaps, setIsOfflineModalOpen } = useOffline();
   const domains = storageService.getDomains();
   const currentDomain = domains.find(d => d.id === currentUser?.selectedDomainId) || domains[0];
@@ -309,32 +309,6 @@ export const Navbar: React.FC<NavbarProps> = ({
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
             </div>
 
-            {/* Quick Demo Switcher for fast evaluation */}
-            <div className="relative group shrink-0">
-              <div className="flex items-center bg-white/5 rounded-xl p-0.5 sm:p-1 border border-white/10 backdrop-blur-md">
-                <span className="text-[11px] font-medium text-slate-400 px-1.5 hidden xl:inline">Role:</span>
-                <select
-                  value={currentUser?.id || ''}
-                  onChange={(e) => {
-                    switchUser(e.target.value);
-                    const selected = allUsers.find(u => u.id === e.target.value);
-                    if (selected?.role === 'admin') {
-                      setActiveTab('admin-dashboard');
-                    } else {
-                      setActiveTab('dashboard');
-                    }
-                  }}
-                  className="text-xs font-semibold bg-slate-900/90 rounded-lg border border-white/15 py-1 px-2 text-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer shadow-xs max-w-[120px] sm:max-w-[150px] truncate"
-                >
-                  {allUsers.map((u) => (
-                    <option key={u.id} value={u.id} className="bg-slate-900 text-white">
-                      {u.role === 'admin' ? '🛡️ Admin: ' : '🎓 Learner: '}
-                      {u.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
 
             {/* Assessment trigger for learner */}
             {role === 'user' && (
@@ -389,12 +363,12 @@ export const Navbar: React.FC<NavbarProps> = ({
             {/* User profile / prominent logout button */}
             {currentUser ? (
               <div className="flex items-center gap-1.5 sm:gap-2 pl-1.5 sm:pl-2 border-l border-white/10 shrink-0">
-                <div className="hidden 2xl:flex flex-col text-right">
-                  <span className="text-xs font-semibold text-white leading-tight truncate max-w-[110px]" title={currentUser.name}>
+                <div className="hidden lg:flex flex-col text-right">
+                  <span className="text-xs font-semibold text-white leading-tight truncate max-w-[120px]" title={currentUser.name}>
                     {currentUser.name}
                   </span>
                   <span className="text-[10px] text-slate-400 capitalize">
-                    {currentUser.role}
+                    {currentUser.role === 'admin' ? '🛡️ Admin' : '🎓 Learner'}
                   </span>
                 </div>
                 <img
@@ -522,33 +496,6 @@ export const Navbar: React.FC<NavbarProps> = ({
               </div>
             )}
 
-            {/* 2. Switch Role Selector */}
-            <div className="p-2.5 rounded-xl bg-white/5 border border-white/10">
-              <label className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">
-                Switch User / Role
-              </label>
-              <select
-                value={currentUser?.id || ''}
-                onChange={(e) => {
-                  switchUser(e.target.value);
-                  const selected = allUsers.find(u => u.id === e.target.value);
-                  if (selected?.role === 'admin') {
-                    setActiveTab('admin-dashboard');
-                  } else {
-                    setActiveTab('dashboard');
-                  }
-                  setIsMobileMenuOpen(false);
-                }}
-                className="w-full text-xs font-semibold bg-slate-950 rounded-lg border border-white/20 py-1.5 px-2.5 text-white focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
-              >
-                {allUsers.map((u) => (
-                  <option key={u.id} value={u.id} className="bg-slate-900 text-white">
-                    {u.role === 'admin' ? '🛡️ Admin: ' : '🎓 Learner: '}
-                    {u.name}
-                  </option>
-                ))}
-              </select>
-            </div>
 
             {/* 3. System Status & Quick Actions */}
             <div className="grid grid-cols-2 gap-2 text-xs">

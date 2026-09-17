@@ -176,7 +176,7 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
                 maxLength={6}
                 value={otp}
                 onChange={(e) => setOtp(e.target.value)}
-                placeholder="123456"
+                placeholder="••••••"
                 className="w-full text-center text-xl font-mono font-bold tracking-widest py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-slate-900 placeholder:text-slate-300 shadow-xs transition-colors"
                 required
               />

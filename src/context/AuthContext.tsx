@@ -17,8 +17,6 @@ interface AuthContextType {
   switchUser: (userId: string) => void;
   updateUserProfile: (updates: Partial<User>) => void;
   allUsers: User[];
-  lastDispatchedEmailOTP: { email: string; otp: string; timestamp: number } | null;
-  clearDispatchedEmailOTP: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -26,8 +24,6 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [allUsers, setAllUsers] = useState<User[]>([]);
-  // We do NOT expose the raw secret OTP code to the UI
-  const [lastDispatchedEmailOTP, setLastDispatchedEmailOTP] = useState<{ email: string; otp: string; timestamp: number } | null>(null);
 
   // Initialize storage and load user
   useEffect(() => {
@@ -146,9 +142,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     // Send OTP directly to the user's provided email address (SMTP & Firebase)
     dispatchOtpEmail(email, otp);
 
-    // Clear any previous in-app dispatched OTP - we do NOT display OTP inside the app!
-    setLastDispatchedEmailOTP(null);
-
     return { success: true };
   };
 
@@ -170,7 +163,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     user.password = newPassword;
     storageService.saveUser(user);
     refreshUsers();
-    setLastDispatchedEmailOTP(null);
 
     return { success: true };
   };
@@ -198,7 +190,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     storageService.setCurrentUserId(user.id);
     setCurrentUser(user);
-    setLastDispatchedEmailOTP(null);
     return { success: true };
   };
 
@@ -220,10 +211,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     refreshUsers();
   };
 
-  const clearDispatchedEmailOTP = () => {
-    setLastDispatchedEmailOTP(null);
-  };
-
   const role = currentUser?.role || 'user';
   const isAuthenticated = currentUser !== null;
 
@@ -242,9 +229,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         verifyOtpOnly,
         switchUser,
         updateUserProfile,
-        allUsers,
-        lastDispatchedEmailOTP,
-        clearDispatchedEmailOTP
+        allUsers
       }}
     >
       {children}

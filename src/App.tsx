@@ -53,7 +53,6 @@ const MainAppContent: React.FC = () => {
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [isRegisterOpen, setIsRegisterOpen] = useState(false);
   const [isForgotPasswordOpen, setIsForgotPasswordOpen] = useState(false);
-  const [appliedOtp, setAppliedOtp] = useState<string>('');
 
   const handleOpenTopic = (topic: Topic) => {
     setSelectedTopic(topic);
@@ -212,8 +211,6 @@ const MainAppContent: React.FC = () => {
           setIsLoginOpen(false);
           setIsForgotPasswordOpen(true);
         }}
-        appliedOtp={appliedOtp}
-        onClearAppliedOtp={() => setAppliedOtp('')}
       />
 
       <RegisterModal
@@ -235,7 +232,6 @@ const MainAppContent: React.FC = () => {
           setIsForgotPasswordOpen(false);
           setIsLoginOpen(true);
         }}
-        initialCode={appliedOtp}
       />
 
       <OfflineManagerModal

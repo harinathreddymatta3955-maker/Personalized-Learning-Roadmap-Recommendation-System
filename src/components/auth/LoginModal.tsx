@@ -37,8 +37,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
     login, 
     forgotPassword, 
     verifyOtpAndLogin, 
-    verifyOtpAndResetPassword, 
-    lastDispatchedEmailOTP 
+    verifyOtpAndResetPassword 
   } = useAuth();
 
   // Mode: 'password' (standard login) or 'forgot_password_otp' (OTP verification near login)

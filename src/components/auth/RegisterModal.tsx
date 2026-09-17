@@ -9,13 +9,15 @@ interface RegisterModalProps {
   onClose: () => void;
   isDismissible?: boolean;
   onSwitchToLogin: () => void;
+  onCompleted?: () => void;
 }
 
 export const RegisterModal: React.FC<RegisterModalProps> = ({
   isOpen,
   onClose,
   isDismissible = true,
-  onSwitchToLogin
+  onSwitchToLogin,
+  onCompleted
 }) => {
   const { register } = useAuth();
   const domains = storageService.getDomains();

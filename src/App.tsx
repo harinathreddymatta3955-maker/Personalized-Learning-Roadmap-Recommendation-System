@@ -27,6 +27,7 @@ import { AuthGateScreen } from './components/auth/AuthGateScreen';
 
 import { storageService } from './services/storageService';
 import { Topic } from './types';
+import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { 
   Sparkles, 
   Map, 
@@ -178,19 +179,21 @@ const MainAppContent: React.FC = () => {
       </main>
 
       {/* Modals */}
-      <TopicDetailModal
-        topic={selectedTopic}
-        course={currentTopicCourse}
-        domain={currentTopicDomain}
-        userId={currentUser?.id || 'user-1'}
-        isOpen={isTopicModalOpen}
-        onClose={() => setIsTopicModalOpen(false)}
-        onSelectTopic={handleOpenTopic}
-        onStatusChanged={() => {
-          // Force refresh
-          setSelectedTopic(prev => (prev ? { ...prev } : null));
-        }}
-      />
+      <ErrorBoundary fallbackTitle="Could not load topic details" onReset={() => setIsTopicModalOpen(false)}>
+        <TopicDetailModal
+          topic={selectedTopic}
+          course={currentTopicCourse}
+          domain={currentTopicDomain}
+          userId={currentUser?.id || 'user-1'}
+          isOpen={isTopicModalOpen}
+          onClose={() => setIsTopicModalOpen(false)}
+          onSelectTopic={handleOpenTopic}
+          onStatusChanged={() => {
+            // Force refresh
+            setSelectedTopic(prev => (prev ? { ...prev } : null));
+          }}
+        />
+      </ErrorBoundary>
 
       <OnboardingWizard
         isOpen={isOnboardingOpen}

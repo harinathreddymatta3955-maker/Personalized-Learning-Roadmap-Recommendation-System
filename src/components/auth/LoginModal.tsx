@@ -11,7 +11,8 @@ import {
   RefreshCw,
   Eye,
   EyeOff,
-  Zap
+  Zap,
+  AlertCircle
 } from 'lucide-react';
 
 interface LoginModalProps {
@@ -61,6 +62,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [deliveryInfo, setDeliveryInfo] = useState<{ deliveredViaSmtp: boolean; fallbackOtp?: string; senderEmail?: string; smtpError?: string } | null>(null);
 
   // Sync applied OTP from external helper (e.g. SimulatedEmailModal Autofill)
   useEffect(() => {
@@ -123,7 +125,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   };
 
   // Trigger OTP dispatch for Forgot Password
-  const triggerSendOtp = (targetEmail?: string) => {
+  const triggerSendOtp = async (targetEmail?: string) => {
     const emailToUse = (targetEmail || email).trim();
     if (!emailToUse) {
       setError('Please enter your registered email address first.');
@@ -136,18 +138,29 @@ export const LoginModal: React.FC<LoginModalProps> = ({
     setSuccess(null);
     setLoading(true);
 
-    setTimeout(() => {
-      const res = forgotPassword(emailToUse);
+    try {
+      const res = await forgotPassword(emailToUse);
       setLoading(false);
       if (res.success) {
         setAuthMode('forgot_password_otp');
         setOtpSent(true);
         setResendCooldown(30);
-        setSuccess(`Verification OTP sent to ${emailToUse}. Please check your email inbox and spam/junk folder.`);
+        setDeliveryInfo({
+          deliveredViaSmtp: Boolean(res.deliveredViaSmtp),
+          fallbackOtp: res.fallbackOtp,
+          senderEmail: res.senderEmail,
+          smtpError: res.smtpError
+        });
+        if (res.deliveredViaSmtp) {
+          setSuccess(`Verification OTP sent to ${emailToUse}. Please check your email inbox and spam/junk folder.`);
+        }
       } else {
         setError(res.error || 'Failed to dispatch OTP. Ensure the email is registered.');
       }
-    }, 350);
+    } catch (err: any) {
+      setLoading(false);
+      setError(err?.message || 'Failed to dispatch OTP.');
+    }
   };
 
   // Click handler when user clicks "Forgot password?"
@@ -476,6 +489,95 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                     Change
                   </button>
                 </div>
+
+                {deliveryInfo && deliveryInfo.deliveredViaSmtp && (
+                  <div className="p-3 rounded-xl bg-blue-50 border border-blue-200 text-blue-950 text-xs space-y-2">
+                    <div className="flex items-start gap-2">
+                      <Mail className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+                      <div>
+                        <div className="font-semibold text-blue-900">Verification OTP Dispatched</div>
+                        <p className="text-blue-800 text-[11px] mt-0.5 leading-relaxed">
+                          Dispatched to <strong>{email}</strong> from <span className="font-mono text-blue-950 font-semibold">{deliveryInfo.senderEmail || 'notificationsplrs@gmail.com'}</span>.
+                        </p>
+                        <div className="text-amber-900 bg-amber-100/90 border border-amber-300/60 rounded-lg p-2 text-[11px] mt-2 leading-relaxed">
+                          ⚠️ <strong>Not in Inbox?</strong> Gmail filters often place verification emails into your <strong>Spam</strong>, <strong>Junk</strong>, or <strong>Promotions</strong> folder.
+                        </div>
+                      </div>
+                    </div>
+
+                    <details className="text-[11px] text-blue-900 pt-0.5">
+                      <summary className="cursor-pointer text-blue-700 font-semibold hover:underline">
+                        Still can't find it? Click to reveal code immediately
+                      </summary>
+                      <div className="mt-2 p-2.5 bg-white rounded-lg border border-blue-200 text-xs">
+                        <p className="text-slate-600 text-[11px] mb-2">
+                          To keep you moving forward, here is your verification code:
+                        </p>
+                        {deliveryInfo.fallbackOtp && (
+                          <div className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5">
+                            <span className="font-mono text-sm font-bold tracking-widest text-slate-900">
+                              {deliveryInfo.fallbackOtp}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (deliveryInfo.fallbackOtp) setOtp(deliveryInfo.fallbackOtp);
+                              }}
+                              className="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded text-[11px] transition-colors cursor-pointer"
+                            >
+                              Autofill Code
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </details>
+                  </div>
+                )}
+
+                {deliveryInfo && !deliveryInfo.deliveredViaSmtp && (
+                  <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-950 text-xs space-y-2">
+                    <div className="flex items-start gap-2">
+                      <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                      <div>
+                        <div className="font-semibold text-amber-900">Mail Server (SMTP) Not Configured</div>
+                        <p className="text-amber-800 text-[11px] mt-0.5 leading-relaxed">
+                          Real delivery to external inboxes requires SMTP credentials in Settings. For testing now, your verification code is:
+                        </p>
+                      </div>
+                    </div>
+
+                    {deliveryInfo.fallbackOtp && (
+                      <div className="flex items-center justify-between bg-white border border-amber-200 rounded-lg px-3 py-1.5">
+                        <span className="font-mono text-sm font-bold tracking-widest text-slate-900">
+                          {deliveryInfo.fallbackOtp}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (deliveryInfo.fallbackOtp) setOtp(deliveryInfo.fallbackOtp);
+                          }}
+                          className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white font-medium rounded text-[11px] transition-colors cursor-pointer"
+                        >
+                          Autofill Code
+                        </button>
+                      </div>
+                    )}
+
+                    <details className="text-[10.5px] text-amber-900 pt-0.5">
+                      <summary className="cursor-pointer text-amber-800 font-medium hover:underline">
+                        How to enable real Gmail delivery?
+                      </summary>
+                      <div className="mt-1.5 p-2 bg-amber-100/70 rounded text-[10px] leading-relaxed text-amber-950">
+                        In project Settings &rarr; Environment variables, add:
+                        <ul className="list-disc pl-4 mt-1 font-mono text-[9.5px] space-y-0.5">
+                          <li>SMTP_HOST=smtp.gmail.com</li>
+                          <li>SMTP_USER=your-email@gmail.com</li>
+                          <li>SMTP_PASS=your-google-app-password</li>
+                        </ul>
+                      </div>
+                    </details>
+                  </div>
+                )}
 
                 {/* 6-Digit OTP Field */}
                 <div>

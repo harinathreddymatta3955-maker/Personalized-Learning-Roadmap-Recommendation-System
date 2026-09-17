@@ -11,7 +11,9 @@ import {
   Clock, 
   BookOpen, 
   X,
-  Sparkles
+  Sparkles,
+  Trash2,
+  AlertTriangle
 } from 'lucide-react';
 
 export const UserManager: React.FC = () => {
@@ -19,6 +21,7 @@ export const UserManager: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [userProgressModal, setUserProgressModal] = useState<UserProgress[] | null>(null);
+  const [userToDelete, setUserToDelete] = useState<User | null>(null);
 
   const domains = storageService.getDomains();
   const allTopics = storageService.getTopics();
@@ -54,6 +57,16 @@ export const UserManager: React.FC = () => {
     setSelectedUser(user);
     const progress = storageService.getUserProgress(user.id);
     setUserProgressModal(progress);
+  };
+
+  const handleDeleteUser = (user: User) => {
+    if (user.id === 'user-admin') {
+      alert('The root system administrator cannot be deleted.');
+      return;
+    }
+    storageService.deleteUser(user.id);
+    setUserToDelete(null);
+    refreshUsers();
   };
 
   const filteredUsers = users.filter(u => {
@@ -183,6 +196,17 @@ export const UserManager: React.FC = () => {
                           {user.status === 'active' ? 'Suspend' : 'Activate'}
                         </button>
                       )}
+
+                      {user.id !== 'user-admin' && (
+                        <button
+                          onClick={() => setUserToDelete(user)}
+                          title={`Permanently delete user ${user.name}`}
+                          className="px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer border bg-rose-500/10 text-rose-300 border-rose-500/20 hover:bg-rose-500/25 hover:border-rose-500/40 inline-flex items-center gap-1"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                          <span>Delete</span>
+                        </button>
+                      )}
                     </td>
                   </tr>
                 );
@@ -224,7 +248,7 @@ export const UserManager: React.FC = () => {
                           {topic ? topic.title : p.topicId}
                         </div>
                         <span className="text-[10px] text-slate-400">
-                          Updated: {new Date(p.lastUpdated).toLocaleDateString()}
+                          {p.completedAt ? `Completed: ${new Date(p.completedAt).toLocaleDateString()}` : 'Status: ' + p.status}
                         </span>
                       </div>
 
@@ -258,6 +282,45 @@ export const UserManager: React.FC = () => {
                 className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-xl shadow-lg shadow-blue-500/25 cursor-pointer transition-all"
               >
                 Close Inspector
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Delete User Confirmation Modal */}
+      {userToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in">
+          <div className="bg-slate-900 border border-white/10 rounded-2xl max-w-md w-full p-6 shadow-2xl text-white space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="p-2.5 rounded-xl bg-rose-500/20 text-rose-400 border border-rose-500/30 shrink-0">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white">Delete User Account?</h3>
+                <p className="text-xs text-slate-300 mt-1 leading-relaxed">
+                  Are you sure you want to permanently delete <strong className="text-white">{userToDelete.name}</strong> (<span className="text-slate-400">{userToDelete.email}</span>)?
+                </p>
+                <p className="text-[11px] text-slate-400 mt-2">
+                  This will permanently erase their progress records, quiz scores, and enrolled roadmap data. This action cannot be undone.
+                </p>
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-white/10 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setUserToDelete(null)}
+                className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-white/10 hover:bg-white/15 text-slate-300 hover:text-white border border-white/10 transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => handleDeleteUser(userToDelete)}
+                className="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-500 text-white shadow-lg shadow-rose-600/30 transition-colors cursor-pointer flex items-center gap-1.5"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Delete User</span>
               </button>
             </div>
           </div>

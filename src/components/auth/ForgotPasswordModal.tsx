@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { X, Mail, KeyRound, Lock, CheckCircle2, ArrowLeft } from 'lucide-react';
+import { X, Mail, KeyRound, Lock, CheckCircle2, ArrowLeft, AlertCircle, RefreshCw } from 'lucide-react';
 
 interface ForgotPasswordModalProps {
   isOpen: boolean;
@@ -27,6 +27,7 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [deliveryInfo, setDeliveryInfo] = useState<{ deliveredViaSmtp: boolean; fallbackOtp?: string; senderEmail?: string; smtpError?: string } | null>(null);
 
   // Update otp if prop changes
   React.useEffect(() => {
@@ -40,25 +41,37 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleRequestOtp = (e: React.FormEvent) => {
+  const handleRequestOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setSuccess(null);
     if (!email.trim()) {
       setError('Please enter your registered email address.');
       return;
     }
 
     setLoading(true);
-    setTimeout(() => {
-      const res = forgotPassword(email.trim());
+    try {
+      const res = await forgotPassword(email.trim());
       setLoading(false);
       if (res.success) {
         setStep('verify');
-        setSuccess(`A 6-digit verification code has been sent to ${email.trim()}. Please check your email inbox and spam folder.`);
+        setDeliveryInfo({
+          deliveredViaSmtp: Boolean(res.deliveredViaSmtp),
+          fallbackOtp: res.fallbackOtp,
+          senderEmail: res.senderEmail,
+          smtpError: res.smtpError
+        });
+        if (res.deliveredViaSmtp) {
+          setSuccess(`A 6-digit verification code has been dispatched to ${email.trim()}. Please check your email inbox and spam folder.`);
+        }
       } else {
         setError(res.error || 'Failed to dispatch OTP.');
       }
-    }, 400);
+    } catch (err: any) {
+      setLoading(false);
+      setError(err?.message || 'Failed to dispatch OTP.');
+    }
   };
 
   const handleResetPassword = (e: React.FormEvent) => {
@@ -167,10 +180,110 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
           </form>
         ) : (
           <form onSubmit={handleResetPassword} className="space-y-4">
+            {deliveryInfo && deliveryInfo.deliveredViaSmtp && (
+              <div className="p-3.5 rounded-xl bg-blue-50/90 border border-blue-200/90 text-blue-950 text-xs space-y-2">
+                <div className="flex items-start gap-2">
+                  <Mail className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+                  <div>
+                    <div className="font-semibold text-blue-900">Verification Email Dispatched</div>
+                    <p className="text-blue-800 text-[11px] mt-0.5 leading-relaxed">
+                      We sent the 6-digit code to <strong>{email}</strong> from <span className="font-mono text-blue-950 font-semibold">{deliveryInfo.senderEmail || 'notificationsplrs@gmail.com'}</span>.
+                    </p>
+                    <div className="text-amber-900 bg-amber-100/90 border border-amber-300/60 rounded-lg p-2 text-[11px] mt-2 leading-relaxed">
+                      ⚠️ <strong>Email not arriving in your inbox?</strong> Automated emails frequently land in your <strong>Spam</strong>, <strong>Junk</strong>, or <strong>Promotions</strong> folder. Please check those folders.
+                    </div>
+                  </div>
+                </div>
+
+                <details className="text-[11px] text-blue-900 pt-0.5">
+                  <summary className="cursor-pointer text-blue-700 font-semibold hover:underline">
+                    Still can't find it? Click to reveal code immediately
+                  </summary>
+                  <div className="mt-2 p-2.5 bg-white rounded-lg border border-blue-200 text-xs">
+                    <p className="text-slate-600 text-[11px] mb-2">
+                      To prevent you from being blocked, here is your one-time verification code:
+                    </p>
+                    {deliveryInfo.fallbackOtp && (
+                      <div className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5">
+                        <span className="font-mono text-base font-bold tracking-widest text-slate-900">
+                          {deliveryInfo.fallbackOtp}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (deliveryInfo.fallbackOtp) setOtp(deliveryInfo.fallbackOtp);
+                          }}
+                          className="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded text-[11px] transition-colors cursor-pointer"
+                        >
+                          Autofill Code
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </details>
+              </div>
+            )}
+
+            {deliveryInfo && !deliveryInfo.deliveredViaSmtp && (
+              <div className="p-3.5 rounded-xl bg-amber-50/90 border border-amber-200/90 text-amber-950 text-xs space-y-2">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                  <div>
+                    <div className="font-semibold text-amber-900">Mail Server (SMTP) Not Configured</div>
+                    <p className="text-amber-800 text-[11px] mt-0.5 leading-relaxed">
+                      Real outbound delivery to <strong className="text-amber-950">{email}</strong> requires SMTP credentials in Settings. For testing right now, your verification code is:
+                    </p>
+                  </div>
+                </div>
+
+                {deliveryInfo.fallbackOtp && (
+                  <div className="flex items-center justify-between bg-white/90 border border-amber-200 rounded-lg px-3 py-2">
+                    <span className="font-mono text-base font-bold tracking-widest text-slate-900">
+                      {deliveryInfo.fallbackOtp}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (deliveryInfo.fallbackOtp) setOtp(deliveryInfo.fallbackOtp);
+                      }}
+                      className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white font-medium rounded text-[11px] transition-colors cursor-pointer"
+                    >
+                      Autofill Code
+                    </button>
+                  </div>
+                )}
+
+                <details className="text-[11px] text-amber-900 pt-0.5">
+                  <summary className="cursor-pointer text-amber-800 font-medium hover:underline">
+                    How to enable real Gmail delivery?
+                  </summary>
+                  <div className="mt-1.5 p-2 bg-amber-100/70 rounded text-[10.5px] leading-relaxed text-amber-950">
+                    In project Settings &rarr; Environment variables, add:
+                    <ul className="list-disc pl-4 mt-1 font-mono text-[10px] space-y-0.5">
+                      <li>SMTP_HOST=smtp.gmail.com</li>
+                      <li>SMTP_USER=your-email@gmail.com</li>
+                      <li>SMTP_PASS=your-google-app-password (16 letters)</li>
+                    </ul>
+                  </div>
+                </details>
+              </div>
+            )}
+
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                6-Digit Verification OTP
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-semibold text-slate-700">
+                  6-Digit Verification OTP
+                </label>
+                <button
+                  type="button"
+                  disabled={loading}
+                  onClick={handleRequestOtp}
+                  className="text-[11px] text-blue-600 hover:text-blue-700 flex items-center gap-1 font-medium cursor-pointer"
+                >
+                  <RefreshCw className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} />
+                  <span>Resend Code</span>
+                </button>
+              </div>
               <input
                 type="text"
                 maxLength={6}

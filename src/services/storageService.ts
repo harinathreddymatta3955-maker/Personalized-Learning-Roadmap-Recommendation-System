@@ -49,7 +49,9 @@ const STORAGE_KEYS = {
   SEARCH_HISTORY: 'plrrs_search_history',
   FIRESTORE_SEEDED: 'plrrs_firestore_seeded_v1',
   CACHED_ROADMAPS: 'coengineer_cached_roadmaps',
-  LAST_ACCESSED_ROADMAP_ID: 'coengineer_last_accessed_roadmap'
+  LAST_ACCESSED_ROADMAP_ID: 'coengineer_last_accessed_roadmap',
+  BOOKMARKS: 'plrrs_resource_bookmarks',
+  COMPLETED_RESOURCES: 'plrrs_completed_resources'
 };
 
 // Helper for safe JSON reading
@@ -86,14 +88,42 @@ function notifyListeners() {
   });
 }
 
-function safeFirestoreWrite(promise: Promise<unknown>, desc: string): void {
-  promise.catch((err: any) => {
-    if (err?.code === 'unavailable' || err?.message?.includes('offline') || err?.message?.includes('backend')) {
-      console.info(`Firestore [${desc}]: Saved locally, will sync when online.`);
-    } else {
-      console.warn(`Firestore [${desc}] note:`, err?.message || err);
+/**
+ * Recursively removes all `undefined` values from an object or array.
+ * Firestore strictly rejects documents containing fields with `undefined` values.
+ */
+export function sanitizeForFirestore<T>(data: T): T {
+  if (data === null || data === undefined) {
+    return data;
+  }
+  if (Array.isArray(data)) {
+    return data.map(item => sanitizeForFirestore(item)) as unknown as T;
+  }
+  if (typeof data === 'object' && !(data instanceof Date)) {
+    const clean: Record<string, any> = {};
+    for (const [key, val] of Object.entries(data as Record<string, any>)) {
+      if (val !== undefined) {
+        clean[key] = sanitizeForFirestore(val);
+      }
     }
-  });
+    return clean as T;
+  }
+  return data;
+}
+
+function safeFirestoreWrite(promiseOrFn: Promise<unknown> | (() => Promise<unknown>), desc: string): void {
+  try {
+    const promise = typeof promiseOrFn === 'function' ? promiseOrFn() : promiseOrFn;
+    promise.catch((err: any) => {
+      if (err?.code === 'unavailable' || err?.message?.includes('offline') || err?.message?.includes('backend')) {
+        console.info(`Firestore [${desc}]: Saved locally, will sync when online.`);
+      } else {
+        console.warn(`Firestore [${desc}] note:`, err?.message || err);
+      }
+    });
+  } catch (err: any) {
+    console.warn(`Firestore [${desc}] synchronous call prevented crash:`, err?.message || err);
+  }
 }
 
 export const storageService = {
@@ -213,26 +243,26 @@ export const storageService = {
       const batch = writeBatch(db);
 
       for (const user of INITIAL_USERS) {
-        batch.set(doc(db, 'users', user.id), user);
+        batch.set(doc(db, 'users', user.id), sanitizeForFirestore(user));
       }
       for (const res of INITIAL_RESOURCES) {
-        batch.set(doc(db, 'resources', res.id), res);
+        batch.set(doc(db, 'resources', res.id), sanitizeForFirestore(res));
       }
       for (const domain of INITIAL_DOMAINS) {
-        batch.set(doc(db, 'domains', domain.id), domain);
+        batch.set(doc(db, 'domains', domain.id), sanitizeForFirestore(domain));
       }
       for (const course of INITIAL_COURSES) {
-        batch.set(doc(db, 'courses', course.id), course);
+        batch.set(doc(db, 'courses', course.id), sanitizeForFirestore(course));
       }
       for (const topic of INITIAL_TOPICS) {
-        batch.set(doc(db, 'topics', topic.id), topic);
+        batch.set(doc(db, 'topics', topic.id), sanitizeForFirestore(topic));
       }
       for (const quiz of INITIAL_QUIZZES) {
-        batch.set(doc(db, 'quizzes', quiz.id), quiz);
+        batch.set(doc(db, 'quizzes', quiz.id), sanitizeForFirestore(quiz));
       }
       for (const prog of INITIAL_USER_PROGRESS) {
         const progDocId = `${prog.userId}_${prog.topicId}`;
-        batch.set(doc(db, 'progress', progDocId), prog);
+        batch.set(doc(db, 'progress', progDocId), sanitizeForFirestore(prog));
       }
 
       await batch.commit();
@@ -303,7 +333,7 @@ export const storageService = {
     notifyListeners();
 
     // Persist immediately to Firestore database
-    safeFirestoreWrite(setDoc(doc(db, 'users', user.id), user), `persist user ${user.id}`);
+    safeFirestoreWrite(() => setDoc(doc(db, 'users', user.id), sanitizeForFirestore(user)), `persist user ${user.id}`);
   },
 
   updateUserStatus(userId: string, status: 'active' | 'suspended'): void {
@@ -315,7 +345,7 @@ export const storageService = {
       notifyListeners();
 
       // Persist to Firestore
-      safeFirestoreWrite(setDoc(doc(db, 'users', userId), { status }, { merge: true }), `update status ${userId}`);
+      safeFirestoreWrite(() => setDoc(doc(db, 'users', userId), { status }, { merge: true }), `update status ${userId}`);
     }
   },
 
@@ -328,8 +358,59 @@ export const storageService = {
       notifyListeners();
 
       // Persist to Firestore
-      safeFirestoreWrite(setDoc(doc(db, 'users', userId), { role }, { merge: true }), `update role ${userId}`);
+      safeFirestoreWrite(() => setDoc(doc(db, 'users', userId), { role }, { merge: true }), `update role ${userId}`);
     }
+  },
+
+  deleteUser(userId: string): void {
+    const users = this.getUsers();
+    const updatedUsers = users.filter(u => u.id !== userId);
+    saveToStorage(STORAGE_KEYS.USERS, updatedUsers);
+
+    // Clean up local progress records & logs for this user
+    const allProgress = getFromStorage<UserTopicProgress[]>(STORAGE_KEYS.PROGRESS, INITIAL_USER_PROGRESS);
+    saveToStorage(STORAGE_KEYS.PROGRESS, allProgress.filter(p => p.userId !== userId));
+
+    const allLogs = getFromStorage<UserActivityLog[]>(STORAGE_KEYS.ACTIVITY_LOGS, INITIAL_ACTIVITY_LOGS);
+    saveToStorage(STORAGE_KEYS.ACTIVITY_LOGS, allLogs.filter(l => l.userId !== userId));
+
+    notifyListeners();
+
+    // Persist deletion to Firestore database
+    safeFirestoreWrite(() => deleteDoc(doc(db, 'users', userId)), `delete user ${userId}`);
+  },
+
+  // Resource Library Bookmarks & Completion
+  getBookmarkedResources(userId: string): string[] {
+    const all = getFromStorage<Record<string, string[]>>(STORAGE_KEYS.BOOKMARKS, {});
+    return all[userId] || [];
+  },
+
+  toggleBookmarkResource(userId: string, resourceId: string): boolean {
+    const all = getFromStorage<Record<string, string[]>>(STORAGE_KEYS.BOOKMARKS, {});
+    const list = all[userId] || [];
+    const exists = list.includes(resourceId);
+    const updated = exists ? list.filter(id => id !== resourceId) : [...list, resourceId];
+    all[userId] = updated;
+    saveToStorage(STORAGE_KEYS.BOOKMARKS, all);
+    notifyListeners();
+    return !exists;
+  },
+
+  getCompletedResources(userId: string): string[] {
+    const all = getFromStorage<Record<string, string[]>>(STORAGE_KEYS.COMPLETED_RESOURCES, {});
+    return all[userId] || [];
+  },
+
+  toggleCompleteResource(userId: string, resourceId: string): boolean {
+    const all = getFromStorage<Record<string, string[]>>(STORAGE_KEYS.COMPLETED_RESOURCES, {});
+    const list = all[userId] || [];
+    const exists = list.includes(resourceId);
+    const updated = exists ? list.filter(id => id !== resourceId) : [...list, resourceId];
+    all[userId] = updated;
+    saveToStorage(STORAGE_KEYS.COMPLETED_RESOURCES, all);
+    notifyListeners();
+    return !exists;
   },
 
   // Domains
@@ -356,7 +437,7 @@ export const storageService = {
     notifyListeners();
 
     // Persist to Firestore
-    safeFirestoreWrite(setDoc(doc(db, 'domains', domain.id), domain), `save domain ${domain.id}`);
+    safeFirestoreWrite(() => setDoc(doc(db, 'domains', domain.id), sanitizeForFirestore(domain)), `save domain ${domain.id}`);
   },
 
   deleteDomain(id: string): void {
@@ -365,7 +446,7 @@ export const storageService = {
     notifyListeners();
 
     // Delete in Firestore
-    safeFirestoreWrite(deleteDoc(doc(db, 'domains', id)), `delete domain ${id}`);
+    safeFirestoreWrite(() => deleteDoc(doc(db, 'domains', id)), `delete domain ${id}`);
   },
 
   // Courses
@@ -398,7 +479,7 @@ export const storageService = {
     notifyListeners();
 
     // Persist to Firestore
-    safeFirestoreWrite(setDoc(doc(db, 'courses', course.id), course), `save course ${course.id}`);
+    safeFirestoreWrite(() => setDoc(doc(db, 'courses', course.id), sanitizeForFirestore(course)), `save course ${course.id}`);
   },
 
   deleteCourse(id: string): void {
@@ -410,7 +491,7 @@ export const storageService = {
     notifyListeners();
 
     // Delete in Firestore
-    safeFirestoreWrite(deleteDoc(doc(db, 'courses', id)), `delete course ${id}`);
+    safeFirestoreWrite(() => deleteDoc(doc(db, 'courses', id)), `delete course ${id}`);
   },
 
   // Topics
@@ -447,7 +528,7 @@ export const storageService = {
     notifyListeners();
 
     // Persist to Firestore
-    safeFirestoreWrite(setDoc(doc(db, 'topics', topic.id), topic), `save topic ${topic.id}`);
+    safeFirestoreWrite(() => setDoc(doc(db, 'topics', topic.id), sanitizeForFirestore(topic)), `save topic ${topic.id}`);
   },
 
   deleteTopic(id: string): void {
@@ -465,7 +546,7 @@ export const storageService = {
     notifyListeners();
 
     // Delete in Firestore
-    safeFirestoreWrite(deleteDoc(doc(db, 'topics', id)), `delete topic ${id}`);
+    safeFirestoreWrite(() => deleteDoc(doc(db, 'topics', id)), `delete topic ${id}`);
   },
 
   // Resources - Read & Write to Firestore Database
@@ -496,7 +577,7 @@ export const storageService = {
     notifyListeners();
 
     // Persist to Firestore database
-    safeFirestoreWrite(setDoc(doc(db, 'resources', resource.id), resource), `persist resource ${resource.id}`);
+    safeFirestoreWrite(() => setDoc(doc(db, 'resources', resource.id), sanitizeForFirestore(resource)), `persist resource ${resource.id}`);
   },
 
   deleteResource(id: string): void {
@@ -505,7 +586,7 @@ export const storageService = {
     notifyListeners();
 
     // Delete from Firestore database
-    safeFirestoreWrite(deleteDoc(doc(db, 'resources', id)), `delete resource ${id}`);
+    safeFirestoreWrite(() => deleteDoc(doc(db, 'resources', id)), `delete resource ${id}`);
   },
 
   // Quizzes
@@ -536,7 +617,7 @@ export const storageService = {
     notifyListeners();
 
     // Persist to Firestore
-    safeFirestoreWrite(setDoc(doc(db, 'quizzes', quiz.id), quiz), `persist quiz ${quiz.id}`);
+    safeFirestoreWrite(() => setDoc(doc(db, 'quizzes', quiz.id), sanitizeForFirestore(quiz)), `persist quiz ${quiz.id}`);
   },
 
   // Progress
@@ -552,10 +633,19 @@ export const storageService = {
     const record: UserTopicProgress = {
       userId,
       topicId,
-      status,
-      completedAt: status === 'completed' ? new Date().toISOString() : undefined,
-      quizScore: score !== undefined ? score : (existingIndex >= 0 ? all[existingIndex].quizScore : undefined)
+      status
     };
+
+    if (status === 'completed') {
+      record.completedAt = new Date().toISOString();
+    } else if (existingIndex >= 0 && all[existingIndex].completedAt) {
+      record.completedAt = all[existingIndex].completedAt;
+    }
+
+    const resolvedScore = score !== undefined ? score : (existingIndex >= 0 ? all[existingIndex].quizScore : undefined);
+    if (resolvedScore !== undefined) {
+      record.quizScore = resolvedScore;
+    }
 
     if (existingIndex >= 0) {
       all[existingIndex] = record;
@@ -566,9 +656,10 @@ export const storageService = {
     saveToStorage(STORAGE_KEYS.PROGRESS, all);
     notifyListeners();
 
-    // Persist to Firestore database
+    // Persist to Firestore database safely
     const progDocId = `${userId}_${topicId}`;
-    safeFirestoreWrite(setDoc(doc(db, 'progress', progDocId), record), `progress ${progDocId}`);
+    const sanitizedRecord = sanitizeForFirestore(record);
+    safeFirestoreWrite(() => setDoc(doc(db, 'progress', progDocId), sanitizedRecord), `progress ${progDocId}`);
   },
 
   // Activity Logs
@@ -592,8 +683,9 @@ export const storageService = {
     saveToStorage(STORAGE_KEYS.ACTIVITY_LOGS, logs.slice(0, 100));
     notifyListeners();
 
-    // Persist to Firestore
-    safeFirestoreWrite(setDoc(doc(db, 'activityLogs', newLog.id), newLog), `activityLog ${newLog.id}`);
+    // Persist to Firestore safely
+    const sanitizedLog = sanitizeForFirestore(newLog);
+    safeFirestoreWrite(() => setDoc(doc(db, 'activityLogs', newLog.id), sanitizedLog), `activityLog ${newLog.id}`);
   },
 
   // OTP simulation

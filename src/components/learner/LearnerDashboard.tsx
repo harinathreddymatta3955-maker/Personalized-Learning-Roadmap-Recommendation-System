@@ -2,13 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { storageService } from '../../services/storageService';
 import { recommendationEngine } from '../../services/recommendationEngine';
-import { Topic, Course } from '../../types';
+import { Topic, Course, Resource } from '../../types';
 import { 
   Sparkles, 
   ArrowRight, 
   CheckCircle2, 
   Clock, 
-  Flame, 
   Award, 
   BookOpen, 
   Map, 
@@ -22,10 +21,12 @@ import {
   Lightbulb,
   Unlock,
   HelpCircle,
-  Eye
+  Eye,
+  ExternalLink
 } from 'lucide-react';
 import { RoadmapPrintModal } from './RoadmapPrintModal';
 import { DomainCapstoneModal } from './DomainCapstoneModal';
+import { ResourceViewerModal } from '../common/ResourceViewerModal';
 
 interface LearnerDashboardProps {
   onOpenRoadmap: () => void;
@@ -64,6 +65,7 @@ export const LearnerDashboard: React.FC<LearnerDashboardProps> = ({
 
   const [isPrintModalOpen, setIsPrintModalOpen] = useState<boolean>(false);
   const [isCapstoneModalOpen, setIsCapstoneModalOpen] = useState<boolean>(false);
+  const [selectedResourceForViewer, setSelectedResourceForViewer] = useState<Resource | null>(null);
 
   // Completed topics & courses calculation
   const completedTopicIds = new Set(
@@ -155,7 +157,7 @@ export const LearnerDashboard: React.FC<LearnerDashboardProps> = ({
       </div>
 
       {/* Metric Cards Row */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-white/5 backdrop-blur-md p-5 rounded-2xl border border-white/10 shadow-lg space-y-2 hover:bg-white/[0.07] transition-all">
           <div className="flex items-center justify-between text-slate-400 text-xs font-medium">
             <span>Roadmap Completion</span>
@@ -195,18 +197,6 @@ export const LearnerDashboard: React.FC<LearnerDashboardProps> = ({
             <span className="text-xs text-slate-400">/ {courses.length} courses</span>
           </div>
           <p className="text-[11px] text-slate-400">Hierarchy based on domain PRD</p>
-        </div>
-
-        <div className="bg-white/5 backdrop-blur-md p-5 rounded-2xl border border-white/10 shadow-lg space-y-2 hover:bg-white/[0.07] transition-all">
-          <div className="flex items-center justify-between text-slate-400 text-xs font-medium">
-            <span>Active Study Streak</span>
-            <Flame className="w-4 h-4 text-orange-400" />
-          </div>
-          <div className="flex items-baseline gap-2">
-            <span className="text-2xl sm:text-3xl font-extrabold text-white">4 Days</span>
-            <span className="text-xs text-emerald-400 font-semibold">+1 today</span>
-          </div>
-          <p className="text-[11px] text-slate-400">Consistent learning pace</p>
         </div>
       </div>
 
@@ -457,12 +447,11 @@ export const LearnerDashboard: React.FC<LearnerDashboardProps> = ({
                   </span>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     {recommendation.recommendedResources.map(res => (
-                      <a
+                      <button
                         key={res.id}
-                        href={res.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="p-3 rounded-xl bg-white/5 border border-white/10 hover:border-blue-400/50 hover:bg-white/10 transition-all text-left block space-y-1 group"
+                        type="button"
+                        onClick={() => setSelectedResourceForViewer(res)}
+                        className="p-3 rounded-xl bg-white/5 border border-white/10 hover:border-blue-400/50 hover:bg-white/10 transition-all text-left block space-y-1 group cursor-pointer w-full"
                       >
                         <div className="flex items-center justify-between">
                           <span className="text-[10px] font-bold uppercase tracking-wider text-blue-400 group-hover:text-blue-300">
@@ -472,7 +461,7 @@ export const LearnerDashboard: React.FC<LearnerDashboardProps> = ({
                         </div>
                         <h4 className="text-xs font-bold text-white truncate">{res.title}</h4>
                         <span className="text-[11px] text-slate-400 block truncate">{res.source}</span>
-                      </a>
+                      </button>
                     ))}
                   </div>
                 </div>
@@ -649,6 +638,17 @@ export const LearnerDashboard: React.FC<LearnerDashboardProps> = ({
           isDomainCompleted={isDomainCompleted}
         />
       )}
+
+      {/* Interactive Resource Viewer Modal */}
+      <ResourceViewerModal
+        resource={selectedResourceForViewer}
+        isOpen={Boolean(selectedResourceForViewer)}
+        onClose={() => setSelectedResourceForViewer(null)}
+        onOpenTopicById={(topicId) => {
+          const t = topics.find(tp => tp.id === topicId);
+          if (t) onOpenTopic(t);
+        }}
+      />
     </div>
   );
 };

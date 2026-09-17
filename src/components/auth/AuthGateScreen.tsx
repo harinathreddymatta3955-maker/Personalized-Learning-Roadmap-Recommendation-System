@@ -17,7 +17,8 @@ import {
   ShieldCheck,
   Brain,
   KeyRound,
-  RefreshCw
+  RefreshCw,
+  AlertCircle
 } from 'lucide-react';
 import { storageService } from '../../services/storageService';
 
@@ -51,6 +52,7 @@ export const AuthGateScreen: React.FC<AuthGateScreenProps> = ({ onSuccess }) => 
   const [resetNewPassword, setResetNewPassword] = useState('');
   const [resetConfirmPassword, setResetConfirmPassword] = useState('');
   const [showResetPassword, setShowResetPassword] = useState(false);
+  const [deliveryInfo, setDeliveryInfo] = useState<{ deliveredViaSmtp: boolean; fallbackOtp?: string; senderEmail?: string; smtpError?: string } | null>(null);
 
   // UI state
   const [loading, setLoading] = useState(false);
@@ -119,7 +121,7 @@ export const AuthGateScreen: React.FC<AuthGateScreenProps> = ({ onSuccess }) => 
     }, 400);
   };
 
-  const handleForgotPassword = (e: React.FormEvent) => {
+  const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setSuccess(null);
@@ -130,16 +132,27 @@ export const AuthGateScreen: React.FC<AuthGateScreenProps> = ({ onSuccess }) => 
     }
 
     setLoading(true);
-    setTimeout(() => {
-      const res = forgotPassword(forgotEmail.trim());
+    try {
+      const res = await forgotPassword(forgotEmail.trim());
       setLoading(false);
       if (res.success) {
         setForgotStep('verify');
-        setSuccess(`Verification code sent to ${forgotEmail.trim()}. Please check your email inbox and spam folder.`);
+        setDeliveryInfo({
+          deliveredViaSmtp: Boolean(res.deliveredViaSmtp),
+          fallbackOtp: res.fallbackOtp,
+          senderEmail: res.senderEmail,
+          smtpError: res.smtpError
+        });
+        if (res.deliveredViaSmtp) {
+          setSuccess(`Verification code sent to ${forgotEmail.trim()}. Please check your email inbox and spam folder.`);
+        }
       } else {
         setError(res.error || 'Unable to locate account with that email.');
       }
-    }, 400);
+    } catch (err: any) {
+      setLoading(false);
+      setError(err?.message || 'Error dispatching verification code.');
+    }
   };
 
   const handleResetPassword = (e: React.FormEvent) => {
@@ -522,6 +535,95 @@ export const AuthGateScreen: React.FC<AuthGateScreenProps> = ({ onSuccess }) => 
 
             {mode === 'forgot' && forgotStep === 'verify' && (
               <form onSubmit={handleResetPassword} className="space-y-3.5">
+                {deliveryInfo && deliveryInfo.deliveredViaSmtp && (
+                  <div className="p-3 rounded-xl bg-blue-950/60 border border-blue-500/30 text-blue-200 text-xs space-y-2">
+                    <div className="flex items-start gap-2">
+                      <Mail className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
+                      <div>
+                        <div className="font-semibold text-blue-300">Verification Email Dispatched</div>
+                        <p className="text-slate-300 text-[11px] mt-0.5 leading-relaxed">
+                          Sent to <strong className="text-white">{forgotEmail}</strong> from <span className="font-mono text-blue-300">{deliveryInfo.senderEmail || 'notificationsplrs@gmail.com'}</span>.
+                        </p>
+                        <div className="text-amber-200 bg-amber-950/60 border border-amber-500/40 rounded-lg p-2 text-[11px] mt-2 leading-relaxed">
+                          ⚠️ <strong>Email not appearing in Inbox?</strong> Check your <strong>Spam</strong>, <strong>Junk</strong>, or <strong>Promotions</strong> folder.
+                        </div>
+                      </div>
+                    </div>
+
+                    <details className="text-[11px] text-blue-300 pt-0.5">
+                      <summary className="cursor-pointer text-blue-400 font-semibold hover:underline">
+                        Still can't find it? Click to reveal code immediately
+                      </summary>
+                      <div className="mt-2 p-2.5 bg-slate-900/90 rounded-lg border border-blue-500/20 text-xs">
+                        <p className="text-slate-400 text-[11px] mb-2">
+                          To keep you moving forward, here is your verification code:
+                        </p>
+                        {deliveryInfo.fallbackOtp && (
+                          <div className="flex items-center justify-between bg-slate-950 border border-blue-500/30 rounded-lg px-3 py-1.5">
+                            <span className="font-mono text-base font-bold tracking-widest text-blue-300">
+                              {deliveryInfo.fallbackOtp}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (deliveryInfo.fallbackOtp) setResetOtp(deliveryInfo.fallbackOtp);
+                              }}
+                              className="px-2.5 py-1 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded text-[11px] transition-colors cursor-pointer"
+                            >
+                              Autofill Code
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </details>
+                  </div>
+                )}
+
+                {deliveryInfo && !deliveryInfo.deliveredViaSmtp && (
+                  <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs space-y-2">
+                    <div className="flex items-start gap-2">
+                      <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                      <div>
+                        <div className="font-semibold text-amber-300">Mail Server (SMTP) Not Configured</div>
+                        <p className="text-slate-300 text-[11px] mt-0.5 leading-relaxed">
+                          Real email delivery to external inboxes requires SMTP credentials in Settings. For testing now, your verification code is:
+                        </p>
+                      </div>
+                    </div>
+
+                    {deliveryInfo.fallbackOtp && (
+                      <div className="flex items-center justify-between bg-slate-900/90 border border-amber-500/30 rounded-lg px-3 py-1.5">
+                        <span className="font-mono text-sm font-bold tracking-widest text-amber-300">
+                          {deliveryInfo.fallbackOtp}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (deliveryInfo.fallbackOtp) setResetOtp(deliveryInfo.fallbackOtp);
+                          }}
+                          className="px-2.5 py-1 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-200 font-medium rounded text-[11px] transition-colors cursor-pointer"
+                        >
+                          Autofill Code
+                        </button>
+                      </div>
+                    )}
+
+                    <details className="text-[10.5px] text-slate-400 pt-0.5">
+                      <summary className="cursor-pointer text-amber-400 font-medium hover:underline">
+                        How to enable real Gmail delivery?
+                      </summary>
+                      <div className="mt-1.5 p-2 bg-slate-900/80 rounded text-[10px] leading-relaxed text-slate-300">
+                        In project Settings &rarr; Environment variables, add:
+                        <ul className="list-disc pl-4 mt-1 font-mono text-[9.5px] space-y-0.5 text-amber-300/80">
+                          <li>SMTP_HOST=smtp.gmail.com</li>
+                          <li>SMTP_USER=your-email@gmail.com</li>
+                          <li>SMTP_PASS=your-google-app-password</li>
+                        </ul>
+                      </div>
+                    </details>
+                  </div>
+                )}
+
                 <div className="p-2.5 rounded-xl bg-blue-950/40 border border-blue-500/20 text-xs text-blue-200 flex items-center justify-between">
                   <div className="truncate pr-2">
                     <span className="text-slate-400">Sent to: </span>

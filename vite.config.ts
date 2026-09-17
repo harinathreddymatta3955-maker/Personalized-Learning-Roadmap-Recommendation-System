@@ -2,7 +2,7 @@ import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 import { defineConfig, type Plugin } from 'vite';
-import { handleSendOtpRequest } from './src/services/sendOtpHandler';
+import { handleSendOtpRequest, handleSmtpStatusRequest } from './src/services/sendOtpHandler';
 
 const apiPlugin = (): Plugin => ({
   name: 'api-endpoints',
@@ -10,6 +10,8 @@ const apiPlugin = (): Plugin => ({
     server.middlewares.use((req, res, next) => {
       if (req.url === '/api/send-otp') {
         handleSendOtpRequest(req, res);
+      } else if (req.url === '/api/smtp-status') {
+        handleSmtpStatusRequest(req, res);
       } else {
         next();
       }
@@ -19,6 +21,8 @@ const apiPlugin = (): Plugin => ({
     server.middlewares.use((req, res, next) => {
       if (req.url === '/api/send-otp') {
         handleSendOtpRequest(req, res);
+      } else if (req.url === '/api/smtp-status') {
+        handleSmtpStatusRequest(req, res);
       } else {
         next();
       }

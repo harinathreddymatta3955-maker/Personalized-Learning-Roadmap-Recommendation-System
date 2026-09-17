@@ -6,11 +6,12 @@ import { dispatchOtpEmail } from '../services/emailService';
 interface AuthContextType {
   currentUser: User | null;
   role: UserRole;
+  isDemoAdmin: boolean;
   isAuthenticated: boolean;
   login: (email: string, password?: string) => { success: boolean; error?: string };
   register: (name: string, email: string, password: string, confirmPassword: string, domainId: string, skills: string[]) => { success: boolean; error?: string };
   logout: () => void;
-  forgotPassword: (email: string) => { success: boolean; error?: string };
+  forgotPassword: (email: string) => Promise<{ success: boolean; deliveredViaSmtp?: boolean; fallbackOtp?: string; senderEmail?: string; message?: string; error?: string; smtpError?: string }>;
   verifyOtpAndResetPassword: (email: string, otp: string, newPassword: string) => { success: boolean; error?: string };
   verifyOtpAndLogin: (email: string, otp: string) => { success: boolean; error?: string };
   verifyOtpOnly: (email: string, otp: string) => { success: boolean; error?: string };
@@ -129,7 +130,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setCurrentUser(null);
   };
 
-  const forgotPassword = (email: string) => {
+  const forgotPassword = async (email: string): Promise<{
+    success: boolean;
+    deliveredViaSmtp?: boolean;
+    fallbackOtp?: string;
+    senderEmail?: string;
+    message?: string;
+    error?: string;
+    smtpError?: string;
+  }> => {
     const user = storageService.getUserByEmail(email);
     if (!user) {
       return { success: false, error: 'Email address not found in our database.' };
@@ -140,9 +149,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     storageService.saveOTP(email, otp);
 
     // Send OTP directly to the user's provided email address (SMTP & Firebase)
-    dispatchOtpEmail(email, otp);
+    const result = await dispatchOtpEmail(email, otp);
 
-    return { success: true };
+    return {
+      success: true,
+      deliveredViaSmtp: result.deliveredViaSmtp,
+      senderEmail: result.senderEmail,
+      fallbackOtp: result.fallbackOtp || otp,
+      message: result.message,
+      smtpError: result.smtpError
+    };
   };
 
   const verifyOtpAndResetPassword = (email: string, otp: string, newPassword: string) => {
@@ -219,6 +235,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       value={{
         currentUser,
         role,
+        isDemoAdmin: role === 'admin',
         isAuthenticated,
         login,
         register,

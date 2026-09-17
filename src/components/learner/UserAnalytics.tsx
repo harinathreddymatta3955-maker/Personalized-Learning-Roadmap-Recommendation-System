@@ -9,7 +9,6 @@ import {
   Calendar, 
   TrendingUp, 
   Sparkles,
-  Flame,
   ArrowUpRight
 } from 'lucide-react';
 
@@ -79,7 +78,7 @@ export const UserAnalytics: React.FC = () => {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-white/5 backdrop-blur-md p-5 rounded-2xl border border-white/10 shadow-lg space-y-1 hover:bg-white/[0.07] transition-all">
           <div className="flex items-center justify-between text-slate-400 text-xs font-medium">
             <span>Completed Topics</span>
@@ -105,15 +104,6 @@ export const UserAnalytics: React.FC = () => {
           </div>
           <div className="text-2xl sm:text-3xl font-extrabold text-white">{avgQuizScore}%</div>
           <p className="text-[11px] text-emerald-400 font-semibold">Exceeds 70% threshold</p>
-        </div>
-
-        <div className="bg-white/5 backdrop-blur-md p-5 rounded-2xl border border-white/10 shadow-lg space-y-1 hover:bg-white/[0.07] transition-all">
-          <div className="flex items-center justify-between text-slate-400 text-xs font-medium">
-            <span>Consecutive Days</span>
-            <Flame className="w-4 h-4 text-orange-400" />
-          </div>
-          <div className="text-2xl sm:text-3xl font-extrabold text-white">4 Days</div>
-          <p className="text-[11px] text-orange-400 font-semibold">Active learning streak</p>
         </div>
       </div>
 

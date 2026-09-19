@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { storageService } from '../../services/storageService';
-import { Topic, Course, Resource, ResourceType, SearchHistoryItem } from '../../types';
+import { Topic, Course, Domain, Resource, ResourceType, SearchHistoryItem } from '../../types';
 import { 
   Search, 
   X, 
@@ -153,7 +153,14 @@ export const GlobalSearchBar: React.FC<GlobalSearchBarProps> = ({
 
   // Build searchable index
   const { allItems, domains } = useMemo(() => {
-    const domainsList = storageService.getDomains();
+    const rawDomains = storageService.getDomains();
+    const domainMap = new Map<string, Domain>();
+    for (const d of rawDomains) {
+      if (d && d.id && !domainMap.has(d.id)) {
+        domainMap.set(d.id, d);
+      }
+    }
+    const domainsList = Array.from(domainMap.values()).sort((a, b) => a.order - b.order);
     const coursesList = storageService.getCourses();
     const topicsList = storageService.getTopics();
     const resourcesList = storageService.getResources();
@@ -163,7 +170,6 @@ export const GlobalSearchBar: React.FC<GlobalSearchBarProps> = ({
       userProgress.filter(p => p.status === 'completed').map(p => p.topicId)
     );
 
-    const domainMap = new Map(domainsList.map(d => [d.id, d]));
     const courseMap = new Map(coursesList.map(c => [c.id, c]));
     const topicMap = new Map(topicsList.map(t => [t.id, t]));
 

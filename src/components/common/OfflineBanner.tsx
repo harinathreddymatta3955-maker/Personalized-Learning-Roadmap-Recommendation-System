@@ -83,8 +83,8 @@ export const OfflineBanner: React.FC<OfflineBannerProps> = ({
                 onChange={handleDomainChange}
                 className="bg-transparent text-amber-200 font-semibold text-xs focus:outline-none cursor-pointer"
               >
-                {cachedRoadmaps.map((r) => (
-                  <option key={r.domainId} value={r.domainId} className="bg-slate-900 text-slate-100">
+                {cachedRoadmaps.map((r, idx) => (
+                  <option key={r.id || `${r.domainId}-${idx}`} value={r.domainId} className="bg-slate-900 text-slate-100">
                     {r.domain.name} ({r.progressPercentage}%)
                   </option>
                 ))}

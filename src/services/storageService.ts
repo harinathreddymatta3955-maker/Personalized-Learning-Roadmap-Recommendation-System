@@ -74,6 +74,36 @@ function saveToStorage<T>(key: string, data: T): void {
   }
 }
 
+/**
+ * Deduplicates an array of objects with an `id` property, ensuring each ID appears at most once.
+ * Preserves the latest object properties if duplicates are encountered.
+ */
+export function deduplicateById<T extends { id?: string }>(items: T[]): T[] {
+  if (!Array.isArray(items)) return [];
+  const map = new Map<string, T>();
+  for (const item of items) {
+    if (item && item.id) {
+      map.set(item.id, { ...(map.get(item.id) || {}), ...item });
+    }
+  }
+  return Array.from(map.values());
+}
+
+/**
+ * Deduplicates progress entries keyed by `${userId}_${topicId}`.
+ */
+export function deduplicateProgress(items: UserTopicProgress[]): UserTopicProgress[] {
+  if (!Array.isArray(items)) return [];
+  const map = new Map<string, UserTopicProgress>();
+  for (const item of items) {
+    if (item && item.userId && item.topicId) {
+      const key = `${item.userId}_${item.topicId}`;
+      map.set(key, { ...(map.get(key) || {}), ...item });
+    }
+  }
+  return Array.from(map.values());
+}
+
 // Listeners for UI real-time refresh
 type StorageListener = () => void;
 const listeners: Set<StorageListener> = new Set();
@@ -181,17 +211,23 @@ export const storageService = {
         // Load cloud data from Firestore into local cache to keep real-time parity
         if (!usersSnap.empty) {
           const cloudUsers: User[] = [];
-          usersSnap.forEach(docSnap => cloudUsers.push(docSnap.data() as User));
+          usersSnap.forEach(docSnap => {
+            const data = docSnap.data() as User;
+            if (data) cloudUsers.push({ ...data, id: data.id || docSnap.id });
+          });
           if (cloudUsers.length > 0) {
-            saveToStorage(STORAGE_KEYS.USERS, cloudUsers);
+            saveToStorage(STORAGE_KEYS.USERS, deduplicateById(cloudUsers));
           }
         }
 
         if (!resourcesSnap.empty) {
           const cloudResources: Resource[] = [];
-          resourcesSnap.forEach(docSnap => cloudResources.push(docSnap.data() as Resource));
+          resourcesSnap.forEach(docSnap => {
+            const data = docSnap.data() as Resource;
+            if (data) cloudResources.push({ ...data, id: data.id || docSnap.id });
+          });
           if (cloudResources.length > 0) {
-            saveToStorage(STORAGE_KEYS.RESOURCES, cloudResources);
+            saveToStorage(STORAGE_KEYS.RESOURCES, deduplicateById(cloudResources));
           }
         }
 
@@ -205,26 +241,41 @@ export const storageService = {
 
         if (domainsSnap && !domainsSnap.empty) {
           const cloudDomains: Domain[] = [];
-          domainsSnap.forEach(d => cloudDomains.push(d.data() as Domain));
-          saveToStorage(STORAGE_KEYS.DOMAINS, cloudDomains);
+          domainsSnap.forEach(d => {
+            const data = d.data() as Domain;
+            if (data) cloudDomains.push({ ...data, id: data.id || d.id });
+          });
+          const cleanDomains = deduplicateById(cloudDomains).sort((a, b) => a.order - b.order);
+          saveToStorage(STORAGE_KEYS.DOMAINS, cleanDomains);
         }
 
         if (coursesSnap && !coursesSnap.empty) {
           const cloudCourses: Course[] = [];
-          coursesSnap.forEach(d => cloudCourses.push(d.data() as Course));
-          saveToStorage(STORAGE_KEYS.COURSES, cloudCourses);
+          coursesSnap.forEach(d => {
+            const data = d.data() as Course;
+            if (data) cloudCourses.push({ ...data, id: data.id || d.id });
+          });
+          const cleanCourses = deduplicateById(cloudCourses).sort((a, b) => a.order - b.order);
+          saveToStorage(STORAGE_KEYS.COURSES, cleanCourses);
         }
 
         if (topicsSnap && !topicsSnap.empty) {
           const cloudTopics: Topic[] = [];
-          topicsSnap.forEach(d => cloudTopics.push(d.data() as Topic));
-          saveToStorage(STORAGE_KEYS.TOPICS, cloudTopics);
+          topicsSnap.forEach(d => {
+            const data = d.data() as Topic;
+            if (data) cloudTopics.push({ ...data, id: data.id || d.id });
+          });
+          const cleanTopics = deduplicateById(cloudTopics).sort((a, b) => a.order - b.order);
+          saveToStorage(STORAGE_KEYS.TOPICS, cleanTopics);
         }
 
         if (progressSnap && !progressSnap.empty) {
           const cloudProgress: UserTopicProgress[] = [];
-          progressSnap.forEach(d => cloudProgress.push(d.data() as UserTopicProgress));
-          saveToStorage(STORAGE_KEYS.PROGRESS, cloudProgress);
+          progressSnap.forEach(d => {
+            const data = d.data() as UserTopicProgress;
+            if (data) cloudProgress.push(data);
+          });
+          saveToStorage(STORAGE_KEYS.PROGRESS, deduplicateProgress(cloudProgress));
         }
 
         notifyListeners();
@@ -303,14 +354,14 @@ export const storageService = {
 
   // Users - Read & Write to Firestore Database
   getUsers(): User[] {
-    const stored = getFromStorage<User[]>(STORAGE_KEYS.USERS, INITIAL_USERS);
+    const rawStored = getFromStorage<User[]>(STORAGE_KEYS.USERS, INITIAL_USERS);
+    const stored = deduplicateById(rawStored);
     const missing = INITIAL_USERS.filter(u => !stored.some(s => s.id === u.id));
-    if (missing.length > 0) {
-      const merged = [...stored, ...missing];
+    const merged = deduplicateById([...stored, ...missing]);
+    if (rawStored.length !== merged.length) {
       saveToStorage(STORAGE_KEYS.USERS, merged);
-      return merged;
     }
-    return stored;
+    return merged;
   },
 
   getUserById(id: string): User | undefined {
@@ -323,13 +374,11 @@ export const storageService = {
 
   saveUser(user: User): void {
     const users = this.getUsers();
-    const idx = users.findIndex(u => u.id === user.id);
-    if (idx >= 0) {
-      users[idx] = user;
-    } else {
-      users.push(user);
-    }
-    saveToStorage(STORAGE_KEYS.USERS, users);
+    const updated = deduplicateById([
+      ...users.filter(u => u.id !== user.id),
+      user
+    ]);
+    saveToStorage(STORAGE_KEYS.USERS, updated);
     notifyListeners();
 
     // Persist immediately to Firestore database
@@ -415,25 +464,23 @@ export const storageService = {
 
   // Domains
   getDomains(): Domain[] {
-    const stored = getFromStorage<Domain[]>(STORAGE_KEYS.DOMAINS, INITIAL_DOMAINS);
+    const rawStored = getFromStorage<Domain[]>(STORAGE_KEYS.DOMAINS, INITIAL_DOMAINS);
+    const stored = deduplicateById(rawStored);
     const missing = INITIAL_DOMAINS.filter(d => !stored.some(s => s.id === d.id));
-    if (missing.length > 0) {
-      const merged = [...stored, ...missing].sort((a, b) => a.order - b.order);
+    const merged = deduplicateById([...stored, ...missing]).sort((a, b) => a.order - b.order);
+    if (rawStored.length !== merged.length) {
       saveToStorage(STORAGE_KEYS.DOMAINS, merged);
-      return merged;
     }
-    return stored;
+    return merged;
   },
 
   saveDomain(domain: Domain): void {
     const domains = this.getDomains();
-    const idx = domains.findIndex(d => d.id === domain.id);
-    if (idx >= 0) {
-      domains[idx] = domain;
-    } else {
-      domains.push(domain);
-    }
-    saveToStorage(STORAGE_KEYS.DOMAINS, domains);
+    const updated = deduplicateById([
+      ...domains.filter(d => d.id !== domain.id),
+      domain
+    ]).sort((a, b) => a.order - b.order);
+    saveToStorage(STORAGE_KEYS.DOMAINS, updated);
     notifyListeners();
 
     // Persist to Firestore
@@ -451,14 +498,14 @@ export const storageService = {
 
   // Courses
   getCourses(): Course[] {
-    const stored = getFromStorage<Course[]>(STORAGE_KEYS.COURSES, INITIAL_COURSES);
+    const rawStored = getFromStorage<Course[]>(STORAGE_KEYS.COURSES, INITIAL_COURSES);
+    const stored = deduplicateById(rawStored);
     const missing = INITIAL_COURSES.filter(c => !stored.some(s => s.id === c.id));
-    if (missing.length > 0) {
-      const merged = [...stored, ...missing].sort((a, b) => a.order - b.order);
+    const merged = deduplicateById([...stored, ...missing]).sort((a, b) => a.order - b.order);
+    if (rawStored.length !== merged.length) {
       saveToStorage(STORAGE_KEYS.COURSES, merged);
-      return merged;
     }
-    return stored;
+    return merged;
   },
 
   getCoursesByDomain(domainId: string): Course[] {
@@ -469,13 +516,11 @@ export const storageService = {
 
   saveCourse(course: Course): void {
     const courses = this.getCourses();
-    const idx = courses.findIndex(c => c.id === course.id);
-    if (idx >= 0) {
-      courses[idx] = course;
-    } else {
-      courses.push(course);
-    }
-    saveToStorage(STORAGE_KEYS.COURSES, courses);
+    const updated = deduplicateById([
+      ...courses.filter(c => c.id !== course.id),
+      course
+    ]).sort((a, b) => a.order - b.order);
+    saveToStorage(STORAGE_KEYS.COURSES, updated);
     notifyListeners();
 
     // Persist to Firestore
@@ -496,14 +541,14 @@ export const storageService = {
 
   // Topics
   getTopics(): Topic[] {
-    const stored = getFromStorage<Topic[]>(STORAGE_KEYS.TOPICS, INITIAL_TOPICS);
+    const rawStored = getFromStorage<Topic[]>(STORAGE_KEYS.TOPICS, INITIAL_TOPICS);
+    const stored = deduplicateById(rawStored);
     const missing = INITIAL_TOPICS.filter(t => !stored.some(s => s.id === t.id));
-    if (missing.length > 0) {
-      const merged = [...stored, ...missing];
+    const merged = deduplicateById([...stored, ...missing]).sort((a, b) => a.order - b.order);
+    if (rawStored.length !== merged.length) {
       saveToStorage(STORAGE_KEYS.TOPICS, merged);
-      return merged;
     }
-    return stored;
+    return merged;
   },
 
   getTopicsByDomain(domainId: string): Topic[] {
@@ -518,13 +563,11 @@ export const storageService = {
 
   saveTopic(topic: Topic): void {
     const topics = this.getTopics();
-    const idx = topics.findIndex(t => t.id === topic.id);
-    if (idx >= 0) {
-      topics[idx] = topic;
-    } else {
-      topics.push(topic);
-    }
-    saveToStorage(STORAGE_KEYS.TOPICS, topics);
+    const updated = deduplicateById([
+      ...topics.filter(t => t.id !== topic.id),
+      topic
+    ]).sort((a, b) => a.order - b.order);
+    saveToStorage(STORAGE_KEYS.TOPICS, updated);
     notifyListeners();
 
     // Persist to Firestore
@@ -551,14 +594,14 @@ export const storageService = {
 
   // Resources - Read & Write to Firestore Database
   getResources(): Resource[] {
-    const stored = getFromStorage<Resource[]>(STORAGE_KEYS.RESOURCES, INITIAL_RESOURCES);
+    const rawStored = getFromStorage<Resource[]>(STORAGE_KEYS.RESOURCES, INITIAL_RESOURCES);
+    const stored = deduplicateById(rawStored);
     const missing = INITIAL_RESOURCES.filter(r => !stored.some(s => s.id === r.id));
-    if (missing.length > 0) {
-      const merged = [...stored, ...missing];
+    const merged = deduplicateById([...stored, ...missing]);
+    if (rawStored.length !== merged.length) {
       saveToStorage(STORAGE_KEYS.RESOURCES, merged);
-      return merged;
     }
-    return stored;
+    return merged;
   },
 
   getResourcesByTopic(topicId: string): Resource[] {
@@ -567,13 +610,11 @@ export const storageService = {
 
   saveResource(resource: Resource): void {
     const resources = this.getResources();
-    const idx = resources.findIndex(r => r.id === resource.id);
-    if (idx >= 0) {
-      resources[idx] = resource;
-    } else {
-      resources.push(resource);
-    }
-    saveToStorage(STORAGE_KEYS.RESOURCES, resources);
+    const updated = deduplicateById([
+      ...resources.filter(r => r.id !== resource.id),
+      resource
+    ]);
+    saveToStorage(STORAGE_KEYS.RESOURCES, updated);
     notifyListeners();
 
     // Persist to Firestore database
@@ -591,14 +632,14 @@ export const storageService = {
 
   // Quizzes
   getQuizzes(): QuizQuestion[] {
-    const stored = getFromStorage<QuizQuestion[]>(STORAGE_KEYS.QUIZZES, INITIAL_QUIZZES);
+    const rawStored = getFromStorage<QuizQuestion[]>(STORAGE_KEYS.QUIZZES, INITIAL_QUIZZES);
+    const stored = deduplicateById(rawStored);
     const missing = INITIAL_QUIZZES.filter(q => !stored.some(s => s.id === q.id));
-    if (missing.length > 0) {
-      const merged = [...stored, ...missing];
+    const merged = deduplicateById([...stored, ...missing]);
+    if (rawStored.length !== merged.length) {
       saveToStorage(STORAGE_KEYS.QUIZZES, merged);
-      return merged;
     }
-    return stored;
+    return merged;
   },
 
   getQuizzesByTopic(topicId: string): QuizQuestion[] {
@@ -607,13 +648,11 @@ export const storageService = {
 
   saveQuiz(quiz: QuizQuestion): void {
     const quizzes = this.getQuizzes();
-    const idx = quizzes.findIndex(q => q.id === quiz.id);
-    if (idx >= 0) {
-      quizzes[idx] = quiz;
-    } else {
-      quizzes.push(quiz);
-    }
-    saveToStorage(STORAGE_KEYS.QUIZZES, quizzes);
+    const updated = deduplicateById([
+      ...quizzes.filter(q => q.id !== quiz.id),
+      quiz
+    ]);
+    saveToStorage(STORAGE_KEYS.QUIZZES, updated);
     notifyListeners();
 
     // Persist to Firestore
@@ -806,10 +845,20 @@ export const storageService = {
 
   getCachedRoadmaps(userId?: string): CachedRoadmapSnapshot[] {
     const list = getFromStorage<CachedRoadmapSnapshot[]>(STORAGE_KEYS.CACHED_ROADMAPS, []);
-    if (userId) {
-      return list.filter(item => item.userId === userId);
+    const map = new Map<string, CachedRoadmapSnapshot>();
+    for (const item of list) {
+      if (item && item.domainId) {
+        const key = item.id || `${item.domainId}_${item.userId || ''}`;
+        if (!map.has(key)) {
+          map.set(key, item);
+        }
+      }
     }
-    return list;
+    const uniqueList = Array.from(map.values());
+    if (userId) {
+      return uniqueList.filter(item => item.userId === userId);
+    }
+    return uniqueList;
   },
 
   getCachedRoadmap(domainId: string, userId?: string): CachedRoadmapSnapshot | null {

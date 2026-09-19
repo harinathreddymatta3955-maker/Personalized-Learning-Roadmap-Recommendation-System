@@ -268,8 +268,8 @@ export const TopicDetailModal: React.FC<TopicDetailModalProps> = ({
               </span>
               <span>•</span>
               <div className="flex flex-wrap gap-1">
-                {topic.keySkills.map(skill => (
-                  <span key={skill} className="px-2 py-0.5 rounded-md bg-white/10 border border-white/10 font-medium text-slate-300">
+                {topic.keySkills.map((skill, sIdx) => (
+                  <span key={`${skill}-${sIdx}`} className="px-2 py-0.5 rounded-md bg-white/10 border border-white/10 font-medium text-slate-300">
                     {skill}
                   </span>
                 ))}
@@ -539,8 +539,8 @@ export const TopicDetailModal: React.FC<TopicDetailModalProps> = ({
               <div className="p-4 rounded-xl bg-white/5 border border-white/10 space-y-2">
                 <h4 className="font-bold text-white text-sm">Key Skill Competencies</h4>
                 <div className="flex flex-wrap gap-1.5">
-                  {topic.keySkills.map(skill => (
-                    <span key={skill} className="px-2.5 py-1 rounded-lg bg-blue-500/20 text-blue-300 border border-blue-500/30 text-xs font-semibold">
+                  {topic.keySkills.map((skill, sIdx) => (
+                    <span key={`${skill}-${sIdx}`} className="px-2.5 py-1 rounded-lg bg-blue-500/20 text-blue-300 border border-blue-500/30 text-xs font-semibold">
                       {skill}
                     </span>
                   ))}

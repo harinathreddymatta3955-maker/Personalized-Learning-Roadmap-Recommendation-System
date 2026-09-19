@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { storageService } from '../../services/storageService';
+import { Domain } from '../../types';
 import { recommendationEngine } from '../../services/recommendationEngine';
 import { COMMON_SKILLS_LIST } from '../../data/seedData';
 import { 
@@ -33,7 +34,16 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
   onCompleted
 }) => {
   const { currentUser, updateUserProfile } = useAuth();
-  const domains = storageService.getDomains();
+  const domains = useMemo(() => {
+    const raw = storageService.getDomains();
+    const map = new Map<string, Domain>();
+    for (const d of raw) {
+      if (d && d.id && !map.has(d.id)) {
+        map.set(d.id, d);
+      }
+    }
+    return Array.from(map.values()).sort((a, b) => a.order - b.order);
+  }, []);
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [selectedDomainId, setSelectedDomainId] = useState(

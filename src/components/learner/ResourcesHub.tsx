@@ -130,8 +130,17 @@ export const ResourcesHub: React.FC<ResourcesHubProps> = ({ onOpenTopicById }) =
     }
   }, [toastMessage]);
 
-  // Fetch core data
-  const domains = storageService.getDomains();
+  // Fetch core data with deduplication guarantee
+  const domains = useMemo(() => {
+    const raw = storageService.getDomains();
+    const map = new Map<string, Domain>();
+    for (const d of raw) {
+      if (d && d.id && !map.has(d.id)) {
+        map.set(d.id, d);
+      }
+    }
+    return Array.from(map.values()).sort((a, b) => a.order - b.order);
+  }, []);
   const allCourses = storageService.getCourses();
   const allTopics = storageService.getTopics();
   const allResources = storageService.getResources();
@@ -322,6 +331,15 @@ export const ResourcesHub: React.FC<ResourcesHubProps> = ({ onOpenTopicById }) =
       const selected = domainMap.get(activeTab);
       if (selected) targetDomains = [selected];
     }
+
+    // Ensure unique target domains
+    const targetMap = new Map<string, Domain>();
+    for (const d of targetDomains) {
+      if (d && d.id && !targetMap.has(d.id)) {
+        targetMap.set(d.id, d);
+      }
+    }
+    targetDomains = Array.from(targetMap.values());
 
     const domainGroups = [];
 

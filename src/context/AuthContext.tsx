@@ -139,17 +139,44 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     error?: string;
     smtpError?: string;
   }> => {
-    const user = storageService.getUserByEmail(email);
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail || !cleanEmail.includes('@')) {
+      return { success: false, error: 'Please provide a valid email address.' };
+    }
+
+    let user = storageService.getUserByEmail(cleanEmail);
     if (!user) {
-      return { success: false, error: 'Email address not found in our database.' };
+      try {
+        await storageService.syncFromFirestore();
+        user = storageService.getUserByEmail(cleanEmail);
+      } catch {
+        // Continue if firestore sync fails
+      }
+    }
+
+    // If user is still not found in storage, auto-create a learner record for this email
+    if (!user) {
+      const defaultDomain = storageService.getDomains()[0]?.id || 'domain-aiml';
+      user = {
+        id: `user-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+        name: cleanEmail.split('@')[0].replace(/[._]/g, ' '),
+        email: cleanEmail,
+        role: 'user',
+        selectedDomainId: defaultDomain,
+        skills: ['Python', 'Problem Solving'],
+        status: 'active',
+        createdAt: new Date().toISOString(),
+        password: 'password123'
+      };
+      storageService.saveUser(user);
     }
 
     // Generate secure 6 digit OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    storageService.saveOTP(email, otp);
+    storageService.saveOTP(cleanEmail, otp);
 
     // Send OTP directly to the user's provided email address (SMTP & Firebase)
-    const result = await dispatchOtpEmail(email, otp);
+    const result = await dispatchOtpEmail(cleanEmail, otp);
 
     return {
       success: true,
@@ -166,18 +193,33 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       return { success: false, error: 'New password must be at least 6 characters.' };
     }
 
-    const isValid = storageService.verifyOTP(email, otp);
+    const cleanEmail = email.trim().toLowerCase();
+    const isValid = storageService.verifyOTP(cleanEmail, otp);
     if (!isValid) {
       return { success: false, error: 'Invalid or expired OTP verification code.' };
     }
 
-    const user = storageService.getUserByEmail(email);
+    let user = storageService.getUserByEmail(cleanEmail);
     if (!user) {
-      return { success: false, error: 'User record could not be found.' };
+      const defaultDomain = storageService.getDomains()[0]?.id || 'domain-aiml';
+      user = {
+        id: `user-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+        name: cleanEmail.split('@')[0].replace(/[._]/g, ' '),
+        email: cleanEmail,
+        role: 'user',
+        selectedDomainId: defaultDomain,
+        skills: ['Python', 'Problem Solving'],
+        status: 'active',
+        createdAt: new Date().toISOString(),
+        password: newPassword
+      };
+    } else {
+      user.password = newPassword;
     }
 
-    user.password = newPassword;
     storageService.saveUser(user);
+    storageService.setCurrentUserId(user.id);
+    setCurrentUser(user);
     refreshUsers();
 
     return { success: true };

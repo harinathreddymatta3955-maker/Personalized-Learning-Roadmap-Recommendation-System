@@ -229,9 +229,15 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
                 <div className="flex items-start gap-2">
                   <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                   <div>
-                    <div className="font-semibold text-amber-900">Mail Server (SMTP) Not Configured</div>
+                    <div className="font-semibold text-amber-900">
+                      {deliveryInfo.smtpError ? 'Email Delivery Failed' : 'Mail Server (SMTP) Not Detected'}
+                    </div>
                     <p className="text-amber-800 text-[11px] mt-0.5 leading-relaxed">
-                      Real outbound delivery to <strong className="text-amber-950">{email}</strong> requires SMTP credentials in Settings. For testing right now, your verification code is:
+                      {deliveryInfo.smtpError ? (
+                        <>Backend error: <code className="bg-amber-100 px-1 py-0.5 rounded font-mono text-[10px] text-amber-900">{deliveryInfo.smtpError}</code></>
+                      ) : (
+                        <>Could not reach mail service on this environment. For uninterrupted testing, your verification code is ready below:</>
+                      )}
                     </p>
                   </div>
                 </div>

@@ -47,19 +47,25 @@ export async function dispatchOtpEmail(email: string, otp: string): Promise<Disp
       body: JSON.stringify({ email: cleanEmail, otp }),
     });
 
-    if (res.ok) {
+    const contentType = res.headers.get('content-type') || '';
+    if (contentType.includes('application/json')) {
       const data = await res.json();
       deliveredViaSmtp = Boolean(data.deliveredViaSmtp);
       senderEmail = data.senderEmail;
-      smtpError = data.smtpError;
-      serverMessage = data.message || '';
+      smtpError = data.smtpError || (res.ok ? undefined : (data.error || `HTTP ${res.status}`));
+      serverMessage = data.message || data.error || '';
       if (data.otp) {
         fallbackOtp = data.otp;
       }
+    } else {
+      const rawText = await res.text();
+      smtpError = `Server responded with HTTP ${res.status}: ${rawText.slice(0, 80)}`;
+      serverMessage = `Backend returned status ${res.status}`;
+      console.warn('[Email Dispatcher] Non-JSON response from /api/send-otp:', res.status, rawText);
     }
   } catch (err: any) {
-    console.warn('[Email Dispatcher] Local API send-otp error:', err);
-    smtpError = err?.message;
+    console.warn('[Email Dispatcher] API send-otp network error:', err);
+    smtpError = err?.message || 'Network error connecting to backend email dispatcher';
   }
 
   // 2. Also attempt Firebase Auth reset email if account is linked

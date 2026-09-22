@@ -3,7 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useOffline } from '../../context/OfflineContext';
 import { storageService } from '../../services/storageService';
 import { recommendationEngine } from '../../services/recommendationEngine';
-import { Topic } from '../../types';
+import { Topic, Domain, User } from '../../types';
 import { GlobalSearchBar } from './GlobalSearchBar';
 import { 
   Compass, 
@@ -37,6 +37,48 @@ interface NavbarProps {
   onOpenRegister?: () => void;
   onOpenTopic?: (topic: Topic) => void;
 }
+
+interface LearnerDomainBadgeProps {
+  currentUser: User;
+  currentDomain: Domain;
+  openOnboarding: () => void;
+}
+
+const LearnerDomainBadge: React.FC<LearnerDomainBadgeProps> = ({
+  currentUser,
+  currentDomain,
+  openOnboarding
+}) => {
+  const domainProgression = recommendationEngine.getDomainProgression(currentUser.id, currentDomain.id);
+  const isLocked = domainProgression.hasStarted && !domainProgression.isCompleted;
+
+  return (
+    <div className="hidden 2xl:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-xs text-slate-300 backdrop-blur-md">
+      <span className="w-2 h-2 rounded-full ring-2 ring-white/10 shrink-0" style={{ backgroundColor: currentDomain.accentColor || '#3b82f6' }} />
+      <span className="font-medium text-white truncate max-w-[130px]">{currentDomain.name}</span>
+      {isLocked ? (
+        <span 
+          className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 text-[10px] font-bold border border-amber-500/30 flex items-center gap-1"
+          title={`Linear track active: ${domainProgression.completedTopics}/${domainProgression.totalTopics} topics completed`}
+        >
+          <Lock className="w-3 h-3 text-amber-400" />
+          {domainProgression.completedTopics}/{domainProgression.totalTopics}
+        </span>
+      ) : domainProgression.isCompleted ? (
+        <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[10px] font-bold border border-emerald-500/30">
+          Mastered
+        </span>
+      ) : null}
+      <button
+        onClick={openOnboarding}
+        className="text-blue-400 hover:text-blue-300 font-semibold ml-1 cursor-pointer transition-colors shrink-0"
+        title={isLocked ? "View track locks & assessment" : "Change domain or reassess skills"}
+      >
+        {isLocked ? "Tracks" : "Switch"}
+      </button>
+    </div>
+  );
+};
 
 export const Navbar: React.FC<NavbarProps> = ({
   activeTab,
@@ -108,37 +150,13 @@ export const Navbar: React.FC<NavbarProps> = ({
             </button>
 
             {/* Current Domain Badge for Learner (visible on wide screens) */}
-            {role === 'user' && currentUser && currentDomain && (() => {
-              const domainProgression = recommendationEngine.getDomainProgression(currentUser.id, currentDomain.id);
-              const isLocked = domainProgression.hasStarted && !domainProgression.isCompleted;
-
-              return (
-                <div className="hidden 2xl:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-xs text-slate-300 backdrop-blur-md">
-                  <span className="w-2 h-2 rounded-full ring-2 ring-white/10 shrink-0" style={{ backgroundColor: currentDomain.accentColor || '#3b82f6' }} />
-                  <span className="font-medium text-white truncate max-w-[130px]">{currentDomain.name}</span>
-                  {isLocked ? (
-                    <span 
-                      className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 text-[10px] font-bold border border-amber-500/30 flex items-center gap-1"
-                      title={`Linear track active: ${domainProgression.completedTopics}/${domainProgression.totalTopics} topics completed`}
-                    >
-                      <Lock className="w-3 h-3 text-amber-400" />
-                      {domainProgression.completedTopics}/{domainProgression.totalTopics}
-                    </span>
-                  ) : domainProgression.isCompleted ? (
-                    <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[10px] font-bold border border-emerald-500/30">
-                      Mastered
-                    </span>
-                  ) : null}
-                  <button
-                    onClick={openOnboarding}
-                    className="text-blue-400 hover:text-blue-300 font-semibold ml-1 cursor-pointer transition-colors shrink-0"
-                    title={isLocked ? "View track locks & assessment" : "Change domain or reassess skills"}
-                  >
-                    {isLocked ? "Tracks" : "Switch"}
-                  </button>
-                </div>
-              );
-            })()}
+            {role === 'user' && currentUser && currentDomain && (
+              <LearnerDomainBadge
+                currentUser={currentUser}
+                currentDomain={currentDomain}
+                openOnboarding={openOnboarding}
+              />
+            )}
           </div>
 
           {/* Global Search Bar (icon on mobile, full input on md+) */}

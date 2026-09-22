@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { X, Mail, KeyRound, Lock, CheckCircle2, ArrowLeft, AlertCircle, RefreshCw } from 'lucide-react';
 
@@ -30,14 +30,14 @@ export const ForgotPasswordModal: React.FC<ForgotPasswordModalProps> = ({
   const [deliveryInfo, setDeliveryInfo] = useState<{ deliveredViaSmtp: boolean; fallbackOtp?: string; senderEmail?: string; smtpError?: string } | null>(null);
 
   // Update otp if prop changes
-  React.useEffect(() => {
+  useEffect(() => {
     if (initialCode) {
       setOtp(initialCode);
       if (step === 'request') {
         setStep('verify');
       }
     }
-  }, [initialCode]);
+  }, [initialCode, step]);
 
   if (!isOpen) return null;
 

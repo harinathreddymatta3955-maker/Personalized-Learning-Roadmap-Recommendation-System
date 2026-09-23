@@ -92,14 +92,16 @@ export const GlobalSearchBar: React.FC<GlobalSearchBarProps> = ({
   const [justCleared, setJustCleared] = useState<boolean>(false);
 
   const searchContainerRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
   const modalInputRef = useRef<HTMLInputElement>(null);
   const resultsContainerRef = useRef<HTMLDivElement>(null);
+
+  const [storageVersion, setStorageVersion] = useState<number>(0);
 
   // Subscribe to storage service updates
   useEffect(() => {
     const unsub = storageService.subscribe(() => {
       setSearchHistory(storageService.getSearchHistory());
+      setStorageVersion(v => v + 1);
     });
     return () => unsub();
   }, []);
@@ -128,13 +130,13 @@ export const GlobalSearchBar: React.FC<GlobalSearchBarProps> = ({
         setIsOpen(prev => {
           const next = !prev;
           if (next) {
-            setTimeout(() => inputRef.current?.focus(), 50);
+            setTimeout(() => modalInputRef.current?.focus(), 50);
           }
           return next;
         });
       } else if (e.key === 'Escape' && isOpen) {
         setIsOpen(false);
-        inputRef.current?.blur();
+        modalInputRef.current?.blur();
       }
     };
 
@@ -142,10 +144,11 @@ export const GlobalSearchBar: React.FC<GlobalSearchBarProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen]);
 
-  // Refresh search history when opened
+  // Refresh search history and focus when opened
   useEffect(() => {
     if (isOpen) {
       setSearchHistory(storageService.getSearchHistory());
+      setTimeout(() => modalInputRef.current?.focus(), 50);
     } else {
       setSelectedIndex(0);
     }
@@ -240,7 +243,7 @@ export const GlobalSearchBar: React.FC<GlobalSearchBarProps> = ({
     });
 
     return { allItems: items, domains: domainsList };
-  }, [currentUser]);
+  }, [currentUser, storageVersion]);
 
   // Filter items based on query, category, and domain
   const { filteredItems, counts } = useMemo(() => {
@@ -312,7 +315,7 @@ export const GlobalSearchBar: React.FC<GlobalSearchBarProps> = ({
   const handleSelectHistoryItem = (historyItem: SearchHistoryItem) => {
     setQuery(historyItem.query);
     setSelectedIndex(0);
-    inputRef.current?.focus();
+    modalInputRef.current?.focus();
   };
 
   const handleRemoveHistoryItem = (e: React.MouseEvent, id: string) => {
@@ -459,6 +462,7 @@ export const GlobalSearchBar: React.FC<GlobalSearchBarProps> = ({
           }}
         >
           <div 
+            ref={searchContainerRef}
             className="w-full max-w-3xl bg-slate-900/95 border border-white/15 rounded-2xl shadow-2xl backdrop-blur-2xl overflow-hidden flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-150 text-white"
             onClick={(e) => e.stopPropagation()}
           >

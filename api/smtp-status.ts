@@ -10,11 +10,15 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).end();
   }
 
-  const isConfigured = Boolean(process.env.SMTP_USER && process.env.SMTP_PASS);
+  const hasUser = Boolean(process.env.SMTP_USER && process.env.SMTP_USER.trim());
+  const hasPass = Boolean(process.env.SMTP_PASS && process.env.SMTP_PASS.trim());
+  const isConfigured = hasUser && hasPass;
   const host = process.env.SMTP_HOST || (process.env.SMTP_USER?.includes('@gmail.com') ? 'smtp.gmail.com' : '');
 
   return res.status(200).json({
     configured: isConfigured,
+    hasSmtpUser: hasUser,
+    hasSmtpPass: hasPass,
     host: isConfigured ? host : null,
     user: isConfigured && process.env.SMTP_USER ? `${process.env.SMTP_USER.slice(0, 3)}***@***` : null
   });

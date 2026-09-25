@@ -1,5 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { sendOtpDirect } from '../src/services/sendOtpHandler';
+import { sendOtpDirect } from '../src/services/sendOtpHandler.ts';
+
+export const maxDuration = 30;
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // Enable CORS
@@ -16,35 +18,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    // Vercel pre-parses json in req.body. If sent as string or stream, handle both:
     let body = req.body;
     if (typeof body === 'string') {
       try {
         body = JSON.parse(body);
       } catch {
-        // keep as is
+        // Keep as string if parsing fails
       }
-    } else if (!body) {
-      body = await new Promise((resolve) => {
-        let raw = '';
-        req.on('data', chunk => { raw += chunk; });
-        req.on('end', () => {
-          try {
-            resolve(JSON.parse(raw || '{}'));
-          } catch {
-            resolve({});
-          }
-        });
-      });
     }
 
-    const { email, otp } = body || {};
+    const { email, otp } = (body && typeof body === 'object') ? body : {};
 
     if (!email || !otp) {
       return res.status(400).json({ error: 'Email and OTP are required' });
     }
 
-    const result = await sendOtpDirect(email, otp);
+    const result = await sendOtpDirect(String(email), String(otp));
     return res.status(200).json(result);
   } catch (err: any) {
     console.error('[API Send OTP] Internal error:', err);

@@ -26,21 +26,8 @@ export async function sendOtpDirect(email: string, otp: string): Promise<SendOtp
   if (user && pass) {
     try {
       const isGmail = host === 'smtp.gmail.com' || user.includes('@gmail.com');
-      const transportConfig: any = {
-        auth: { user, pass },
-      };
-
-      if (isGmail) {
-        transportConfig.service = 'gmail';
-      } else if (host) {
-        transportConfig.host = host;
-        transportConfig.port = port;
-        transportConfig.secure = port === 465;
-      }
-
-      const transporter = nodemailer.createTransport(transportConfig);
-
-      await transporter.sendMail({
+      
+      const mailOptions = {
         from,
         to: email,
         subject: 'Your CO-ENGINEER Verification Code',
@@ -64,9 +51,63 @@ export async function sendOtpDirect(email: string, otp: string): Promise<SendOtp
             </p>
           </div>
         `,
-      });
+      };
 
-      console.log(`[Email Service] OTP successfully delivered via SMTP to ${email}`);
+      let sendError: any = null;
+
+      // Primary attempt
+      try {
+        const primaryTransporter = isGmail
+          ? nodemailer.createTransport({
+              service: 'gmail',
+              auth: { user, pass },
+              connectionTimeout: 10000,
+              greetingTimeout: 10000,
+              socketTimeout: 15000,
+            })
+          : nodemailer.createTransport({
+              host,
+              port,
+              secure: port === 465,
+              auth: { user, pass },
+              connectionTimeout: 10000,
+              greetingTimeout: 10000,
+              socketTimeout: 15000,
+            });
+
+        await primaryTransporter.sendMail(mailOptions);
+        console.log(`[Email Service] OTP successfully delivered via SMTP to ${email}`);
+      } catch (err: any) {
+        sendError = err;
+        console.warn('[Email Service] Primary SMTP attempt failed:', err?.message);
+
+        // Fallback attempt for Gmail via port 587 STARTTLS
+        if (isGmail) {
+          try {
+            console.log('[Email Service] Attempting fallback via smtp.gmail.com:587 STARTTLS...');
+            const fallbackTransporter = nodemailer.createTransport({
+              host: 'smtp.gmail.com',
+              port: 587,
+              secure: false,
+              requireTLS: true,
+              auth: { user, pass },
+              connectionTimeout: 10000,
+              greetingTimeout: 10000,
+              socketTimeout: 15000,
+            });
+            await fallbackTransporter.sendMail(mailOptions);
+            sendError = null;
+            console.log(`[Email Service] OTP successfully delivered via fallback port 587 to ${email}`);
+          } catch (retryErr: any) {
+            sendError = retryErr;
+            console.error('[Email Service] Fallback SMTP attempt failed:', retryErr?.message);
+          }
+        }
+      }
+
+      if (sendError) {
+        throw sendError;
+      }
 
       return {
         success: true,
@@ -77,12 +118,19 @@ export async function sendOtpDirect(email: string, otp: string): Promise<SendOtp
       };
     } catch (sendErr: any) {
       console.error('[Email Service] SMTP dispatch failure:', sendErr);
+      let descriptiveError = sendErr?.message || 'Failed to connect to SMTP server';
+      if (descriptiveError.includes('535') || descriptiveError.includes('Username and Password not accepted')) {
+        descriptiveError = 'Gmail authentication failed (535). Please verify that 2-Step Verification is active and you are using a 16-character Google App Password (not your personal account password).';
+      } else if (descriptiveError.includes('ETIMEDOUT') || descriptiveError.includes('ESOCKET')) {
+        descriptiveError = 'Connection to Gmail SMTP timed out. Check network restrictions or try again.';
+      }
+
       return {
         success: true,
         deliveredViaSmtp: false,
-        smtpError: sendErr?.message || 'Failed to connect to SMTP server',
+        smtpError: descriptiveError,
         otp,
-        message: `SMTP delivery failed (${sendErr?.message || 'connection error'}). Fallback verification code provided for testing.`
+        message: `SMTP delivery failed (${descriptiveError}). Fallback verification code provided for testing.`
       };
     }
   } else {

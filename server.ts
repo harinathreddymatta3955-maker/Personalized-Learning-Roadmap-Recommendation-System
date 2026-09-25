@@ -1,14 +1,15 @@
 import express from 'express';
 import path from 'path';
+import fs from 'fs';
 import dotenv from 'dotenv';
 import { createServer as createViteServer } from 'vite';
-import { handleSendOtpRequest, handleSmtpStatusRequest } from './src/services/sendOtpHandler';
+import { handleSendOtpRequest, handleSmtpStatusRequest } from './src/services/sendOtpHandler.ts';
 
 dotenv.config();
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = Number(process.env.PORT) || 3000;
 
   // Parse JSON payloads for API routes
   app.use(express.json());
@@ -26,15 +27,17 @@ async function startServer() {
     await handleSendOtpRequest(req, res);
   });
 
+  const distPath = path.resolve(process.cwd(), 'dist');
+  const isProduction = process.env.NODE_ENV === 'production' || fs.existsSync(path.join(distPath, 'index.html'));
+
   // Vite middleware for development vs Static serving for production
-  if (process.env.NODE_ENV !== 'production') {
+  if (!isProduction) {
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
     });
     app.use(vite.middlewares);
   } else {
-    const distPath = path.resolve(process.cwd(), 'dist');
     app.use(express.static(distPath));
     app.get('*', (req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));

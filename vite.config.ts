@@ -53,7 +53,7 @@ export default defineConfig(() => {
       host: '0.0.0.0',
     },
     build: {
-      chunkSizeWarningLimit: 1200,
+      chunkSizeWarningLimit: 2000,
       rollupOptions: {
         output: {
           manualChunks: {

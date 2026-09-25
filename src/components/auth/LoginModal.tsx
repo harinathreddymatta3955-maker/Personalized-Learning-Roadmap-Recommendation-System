@@ -539,9 +539,15 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                     <div className="flex items-start gap-2">
                       <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                       <div>
-                        <div className="font-semibold text-amber-900">Mail Server (SMTP) Not Configured</div>
+                        <div className="font-semibold text-amber-900">
+                          {deliveryInfo.smtpError ? 'SMTP Delivery Alert' : 'Mail Server (SMTP) Not Configured'}
+                        </div>
                         <p className="text-amber-800 text-[11px] mt-0.5 leading-relaxed">
-                          Real delivery to external inboxes requires SMTP credentials in Settings. For testing now, your verification code is:
+                          {deliveryInfo.smtpError ? (
+                            <>Delivery notice: <span className="font-medium text-amber-900">{deliveryInfo.smtpError}</span></>
+                          ) : (
+                            <>Real delivery to external inboxes requires SMTP credentials in Settings. For testing now, your verification code is:</>
+                          )}
                         </p>
                       </div>
                     </div>

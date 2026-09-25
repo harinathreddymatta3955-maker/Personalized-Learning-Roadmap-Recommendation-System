@@ -15,12 +15,33 @@ export interface SendOtpResult {
  * Supports Gmail auto-configuration and sanitizes spaces in app passwords.
  */
 export async function sendOtpDirect(email: string, otp: string): Promise<SendOtpResult> {
-  const host = process.env.SMTP_HOST || (process.env.SMTP_USER?.includes('@gmail.com') ? 'smtp.gmail.com' : '');
-  const port = Number(process.env.SMTP_PORT) || 587;
-  const user = process.env.SMTP_USER ? process.env.SMTP_USER.trim() : undefined;
-  // Google App Passwords may have spaces (e.g. "abcd efgh ijkl mnop"), remove them
-  const rawPass = process.env.SMTP_PASS;
-  const pass = rawPass ? rawPass.replace(/\s+/g, '') : undefined;
+  const user = (
+    process.env.SMTP_USER ||
+    process.env.smtp_user ||
+    process.env.SMTP_USERNAME ||
+    process.env.smtp_username ||
+    process.env.GMAIL_USER ||
+    process.env.EMAIL_USER
+  )?.trim();
+
+  const rawPass = (
+    process.env.SMTP_PASS ||
+    process.env.SMTP_PASSWORD ||
+    process.env.smtp_pass ||
+    process.env.smtp_password ||
+    process.env.GMAIL_PASS ||
+    process.env.GMAIL_APP_PASSWORD ||
+    process.env.EMAIL_PASS
+  );
+  const pass = rawPass ? rawPass.replace(/\s+/g, '').trim() : undefined;
+
+  const host = (
+    process.env.SMTP_HOST ||
+    process.env.smtp_host ||
+    (user?.includes('@gmail.com') ? 'smtp.gmail.com' : '')
+  )?.trim();
+
+  const port = Number(process.env.SMTP_PORT || process.env.smtp_port) || 587;
   const from = process.env.SMTP_FROM || (user ? `"CO-ENGINEER Security" <${user}>` : '"CO-ENGINEER" <no-reply@coengineer.local>');
 
   if (user && pass) {
